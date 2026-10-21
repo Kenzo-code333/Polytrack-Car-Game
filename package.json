@@ -1,0 +1,11 @@
+{
+  "name": "polyrush-racing",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:single": "node tools/build-single.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.0"
+  }
+}

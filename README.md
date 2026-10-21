@@ -5,7 +5,10 @@ There is no build step and there are no image or sound files: textures and sound
 
 ## Play
 
-ES modules need to be served over HTTP, so start any static server in the repo folder:
+**Easiest (works on Chromebooks, no terminal):** download `polyrush.html` from this repo and open it in Chrome.
+It is the whole game in one file. Rebuild it after code changes with `npm install && npm run build:single`.
+
+**For development**, serve the folder over HTTP, since ES modules can't load from a plain file:
 
 ```bash
 python3 -m http.server 8000
