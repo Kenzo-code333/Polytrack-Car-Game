@@ -24,7 +24,7 @@
       <div class="menu-buttons">
         <button id="btn-play" class="btn primary big">🏁 Race</button>
         <button id="btn-garage" class="btn">🔧 Garage</button>
-        <button id="btn-online" class="btn ghost">🌐 Online with friends <small>soon</small></button>
+        <button id="btn-online" class="btn">🌐 Online with friends</button>
         <button id="btn-help" class="btn ghost">❔ How to play</button>
         <button id="menu-chests" class="btn chest hidden">🎁 Open treasure chest (<span id="menu-chests-count">0</span>)</button>
       </div>
@@ -78,8 +78,8 @@
         <tr><td><kbd>W</kbd><kbd>↑</kbd></td><td>Accelerate</td></tr>
         <tr><td><kbd>S</kbd><kbd>↓</kbd></td><td>Brake / reverse</td></tr>
         <tr><td><kbd>A</kbd><kbd>D</kbd><kbd>←</kbd><kbd>→</kbd></td><td>Steer</td></tr>
-        <tr><td><kbd>Space</kbd></td><td>Drift (handbrake)</td></tr>
-        <tr><td><kbd>E</kbd><kbd>Shift</kbd></td><td>Use power-up</td></tr>
+        <tr><td><kbd>Enter</kbd><kbd>E</kbd></td><td>Use power-up</td></tr>
+        <tr><td><kbd>↑</kbd> + <kbd>←</kbd>/<kbd>→</kbd> + <kbd>Space</kbd></td><td>Drift</td></tr>
         <tr><td><kbd>R</kbd></td><td>Reset car onto the track</td></tr>
         <tr><td><kbd>C</kbd></td><td>Change camera</td></tr>
         <tr><td><kbd>Esc</kbd><kbd>P</kbd></td><td>Pause</td></tr>
@@ -93,9 +93,51 @@
         <li>🧲 <b>Coin Magnet</b> — pulls nearby coins to you.</li>
         <li>🛢️ <b>Oil Slick</b> — drop it behind you to spin out chasers.</li>
       </ul>
-      <p>Blue arrow pads give a free boost. Collect 🪙 coins on the road, then spend them in the garage.
+      <p>Blue arrow pads give a free boost, and yellow ramps launch you into the air. Collect 🪙 coins on the road, then spend them in the garage.
         Win a race to earn a 🎁 treasure chest with coins, parts or exclusive upgrades!</p>
       <button id="help-back" class="btn primary">Got it</button>
+    </div>
+  </section>
+
+  <!-- Online lobby -->
+  <section id="online" class="screen hidden">
+    <div class="panel">
+      <div class="panel-head">
+        <button id="online-back" class="btn small ghost">← Back</button>
+        <h2>Race with friends</h2>
+        <span class="net-dot" id="online-dot" title="Connection"></span>
+      </div>
+      <div id="online-unavailable" class="hidden">
+        <p>Online races work when you play from the game's shared claude.ai link.
+          Open that link, then share it with your friends from its Share menu so they can open it too.</p>
+      </div>
+      <div id="online-home" class="hidden">
+        <label class="field" for="online-name">Your racer name
+          <input id="online-name" maxlength="16" autocomplete="off" placeholder="Speedy" />
+        </label>
+        <button id="online-create" class="btn primary big">Create a race</button>
+        <div class="join-row">
+          <input id="online-code" maxlength="6" autocomplete="off" placeholder="Race code" aria-label="Race code" />
+          <button id="online-join" class="btn">Join</button>
+        </div>
+        <p class="hint">Create a race and send the 4-letter code to your friends. They open this same game link,
+          press Online, and join with the code.</p>
+      </div>
+      <div id="online-lobby" class="hidden">
+        <div class="code-box"><span>Race code</span><b id="lobby-code"></b></div>
+        <h3>Racers</h3>
+        <ul id="lobby-players" class="players"></ul>
+        <div id="lobby-host" class="lobby-opts">
+          <label class="field" for="lobby-map">Track <select id="lobby-map"></select></label>
+          <label class="field" for="lobby-season">Season <select id="lobby-season"></select></label>
+          <label class="field" for="lobby-laps">Laps <select id="lobby-laps"></select></label>
+        </div>
+        <p id="lobby-status" class="sub"></p>
+        <div class="row">
+          <button id="lobby-start" class="btn primary big">Start race</button>
+          <button id="lobby-leave" class="btn ghost">Leave</button>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -172,7 +214,7 @@
       <button id="pause-btn" class="icon-btn">⏸</button>
     </div>
     <canvas id="minimap" width="190" height="190"></canvas>
-    <div id="hud-item"><div class="slot"><span id="item-icon"></span></div><div id="item-name">No item</div><div class="hint">E / Shift</div></div>
+    <div id="hud-item"><div class="slot"><span id="item-icon"></span></div><div id="item-name">No item</div><div class="hint">Enter</div></div>
     <div id="hud-speed"><span id="speed-val">0</span><small>km/h</small><div class="speed-track"><i id="speed-bar"></i></div></div>
     <div id="hud-msg"></div>
     <div id="hud-countdown"></div>

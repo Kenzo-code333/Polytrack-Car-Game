@@ -2,6 +2,7 @@
 import { POWERUPS } from './data.js';
 
 const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 export function formatTime(t) {
   if (!isFinite(t) || t <= 0) return '--:--.--';
@@ -153,7 +154,7 @@ export class HUD {
     const fxHtml = fx.map((t) => `<span>${t}</span>`).join('');
     if (fxHtml !== this.effects.innerHTML) this.effects.innerHTML = fxHtml;
 
-    const board = race.standings.map((r) => `<li class="${r.isPlayer ? 'me' : ''}"><b>${r.position}</b>${r.name}${r.finished ? ' 🏁' : ''}</li>`).join('');
+    const board = race.standings.map((r) => `<li class="${r.isPlayer ? 'me' : ''}"><b>${r.position}</b>${esc(r.name)}${r.finished ? ' 🏁' : ''}</li>`).join('');
     if (board !== this.lastBoard) {
       this.board.innerHTML = board;
       this.lastBoard = board;

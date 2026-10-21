@@ -24,6 +24,9 @@ python3 -m http.server 8000
   - 🍂 Autumn: orange trees, pumpkins, falling leaves, a little slippery
   - ❄️ Winter: snow, snowmen, an icy road, very slippery (snow chains help!)
 - **5 AI opponents** on three difficulty levels. You can race 1, 3 or 5 laps.
+- **Online races with friends**: create a race, share the 4-letter code, and everyone who opens the game's
+  claude.ai link can join. Cars, finishing order, mud hits and oil slicks are synced live.
+- **Jumps, bumps and hills**: yellow ramps launch you into the air, bumpy strips make you hop, and every track rolls up and down.
 - **Power-ups** from ❓ boxes:
   - 🚀 Speed Boost
   - 🟤 Mud Splash: thrown at the racer ahead. When you get hit, mud covers your screen.
@@ -44,8 +47,8 @@ python3 -m http.server 8000
 | W / ↑ | Accelerate |
 | S / ↓ | Brake / reverse |
 | A D / ← → | Steer |
-| Space | Drift |
-| E / Shift | Use power-up |
+| Enter / E | Use power-up |
+| ↑ + ← / → + Space | Drift |
 | R | Reset car onto the track |
 | C | Change camera |
 | Esc / P | Pause |
@@ -65,8 +68,12 @@ python3 -m http.server 8000
 | `js/garage.js`, `js/showroom.js` | Garage UI and 3D showroom |
 | `js/hud.js` | In-race HUD, minimap, mud overlay |
 | `js/save.js` | Saved profile (localStorage) |
+| `js/online.js` | Online lobby and room connection |
 | `js/audio.js` | Synthesised sound effects and engine |
 
-## Roadmap
+## Online play
 
-- 🌐 Online races with friends. The racer code is already separated from where its input comes from (keyboard or AI), so a networked racer can be added as another input source.
+Online races use the claude.ai viewer's live "room" connection (`js/online.js`), so there's no server to run.
+Every player shares their car state as presence, and each race code is its own room. Online play works only
+inside the published claude.ai link. Friends need a claude.ai account and access to the link (use its Share menu).
+The standalone `polyrush.html` and local copies are single player.

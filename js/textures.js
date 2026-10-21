@@ -109,6 +109,26 @@ export function boostPadTexture() {
   });
 }
 
+export function rampTexture() {
+  return canvasTexture('ramp', 256, 256, (ctx, w, h) => {
+    ctx.fillStyle = '#ffc81e';
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#1b1b1f';
+    for (let k = 0; k < 2; k++) {
+      const y = 40 + k * 128;
+      ctx.beginPath();
+      ctx.moveTo(w * 0.1, y + 70);
+      ctx.lineTo(w * 0.5, y);
+      ctx.lineTo(w * 0.9, y + 70);
+      ctx.lineTo(w * 0.9, y + 100);
+      ctx.lineTo(w * 0.5, y + 30);
+      ctx.lineTo(w * 0.1, y + 100);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }, { repeat: true });
+}
+
 export function itemBoxTexture() {
   return canvasTexture('itembox', 128, 128, (ctx, w, h) => {
     const g = ctx.createLinearGradient(0, 0, w, h);

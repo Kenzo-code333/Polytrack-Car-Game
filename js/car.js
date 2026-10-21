@@ -371,6 +371,7 @@ export function animateRainbow(model, time) {
 }
 
 const UP = new THREE.Vector3(0, 1, 0);
+const GRAVITY = 26;
 
 export class Car {
   constructor(equipped, track, opts = {}) {
@@ -396,6 +397,12 @@ export class Car {
     this.wallHit = 0;
     this.grip = 1;
     this.slip = 0;
+    this.yawRate = 0;
+    this.vy = 0;
+    this.groundY = 0;
+    this.airborne = false;
+    this.airTime = 0;
+    this.landed = 0;
   }
 
   placeAt(f, lat) {
@@ -403,9 +410,14 @@ export class Car {
     this.pos.copy(fr.point).addScaledVector(fr.right, lat);
     this.heading = Math.atan2(fr.tangent.x, fr.tangent.z);
     this.vel.set(0, 0, 0);
+    this.yawRate = 0;
     this.hint = Math.floor(f);
     this.track.project(this.pos, this.hint, this.proj);
     this.pos.y = this.proj.point.y;
+    this.vy = 0;
+    this.groundY = this.pos.y;
+    this.airborne = false;
+    this.airTime = 0;
   }
 
   // env: { seasonGrip, winter, boost, mud, spin, speedScale }
@@ -418,6 +430,7 @@ export class Car {
     const rz = fx;
     let vf = this.vel.x * fx + this.vel.z * fz;
     let vl = this.vel.x * rx + this.vel.z * rz;
+    if (this.airborne) return this.stepAir(dt);
 
     const boostMul = env.boost ? 1.32 + 0.12 * (st.nitro - 1) : 1;
     const maxV = st.speed * boostMul * (env.mud ? 0.72 : 1) * (env.speedScale || 1);
@@ -446,19 +459,59 @@ export class Car {
     this.vel.z = fz * vf + rz * vl;
 
     const speedFactor = Math.max(-1, Math.min(1, vf / 7));
-    const highSpeedDamp = 1 - 0.38 * Math.min(1, Math.max(0, vf) / st.speed);
+    const highSpeedDamp = 1 - 0.45 * Math.min(1, Math.max(0, vf) / st.speed);
     let turn = st.turn * inp.steer * speedFactor * highSpeedDamp * (inp.drift ? 1.35 : 1);
     if (env.mud) turn += Math.sin(performance.now() * 0.006) * 0.25;
     if (env.spin) turn = 10;
-    this.heading -= turn * dt;
+    // Ease the turn rate in and out so the car sweeps through corners instead of snapping.
+    this.yawRate += (turn - this.yawRate) * (1 - Math.exp(-dt * (env.spin ? 30 : 7)));
+    this.heading -= this.yawRate * dt;
 
     this.pos.x += this.vel.x * dt;
     this.pos.z += this.vel.z * dt;
+    this.constrain(dt);
+    this.speed = vf;
+    this.slip = vl;
+  }
 
-    // Stay on the track: follow its height and bounce off the barriers.
+  // Flying off a ramp or crest: no grip, a little air steering, gravity pulls us down.
+  stepAir(dt) {
+    this.airTime += dt;
+    this.yawRate *= Math.exp(-dt * 3);
+    this.heading -= (this.yawRate + this.input.steer * 0.35) * dt;
+    this.pos.x += this.vel.x * dt;
+    this.pos.z += this.vel.z * dt;
+    this.constrain(dt);
+    this.speed = this.vel.x * Math.sin(this.heading) + this.vel.z * Math.cos(this.heading);
+    this.slip = 0;
+  }
+
+  // Follow the road height (with jumps) and bounce off the barriers.
+  constrain(dt) {
     const pr = this.track.project(this.pos, this.hint, this.proj);
     this.hint = pr.i;
-    this.pos.y = pr.point.y;
+    const ground = pr.point.y;
+    const groundRate = (ground - this.groundY) / dt;
+    this.groundY = ground;
+    if (this.airborne) {
+      this.vy -= GRAVITY * dt;
+      this.pos.y += this.vy * dt;
+      if (this.pos.y <= ground) {
+        this.landed = Math.max(this.landed, groundRate - this.vy);
+        this.pos.y = ground;
+        this.vy = groundRate;
+        this.airborne = false;
+        this.airTime = 0;
+        if (this.landed > 9) this.vel.multiplyScalar(0.96);
+      }
+    } else if (groundRate < this.vy - GRAVITY * dt * 1.5 - 2.5 && this.vy > 1) {
+      // The road drops away faster than gravity can follow: take off.
+      this.airborne = true;
+      this.pos.y += this.vy * dt;
+    } else {
+      this.pos.y = ground;
+      this.vy = Math.max(-40, Math.min(40, groundRate));
+    }
     const limit = this.track.width / 2 + 0.05;
     this.wallHit = 0;
     if (Math.abs(pr.lateral) > limit) {
@@ -480,8 +533,6 @@ export class Car {
       if (Math.abs(d) < Math.PI / 2) this.heading += d * Math.min(1, 2.5 * dt);
     }
     this.lateral = pr.lateral;
-    this.speed = vf;
-    this.slip = vl;
   }
 
   syncVisual(dt, time) {
@@ -493,7 +544,8 @@ export class Car {
     const fz = Math.cos(this.heading);
     const t = this.proj.tangent || UP;
     const along = t.x * fx + t.z * fz;
-    const targetPitch = -Math.asin(Math.max(-1, Math.min(1, t.y))) * Math.sign(along || 1);
+    let targetPitch = -Math.asin(Math.max(-1, Math.min(1, t.y))) * Math.sign(along || 1);
+    if (this.airborne) targetPitch = Math.max(-0.45, Math.min(0.45, -Math.atan2(this.vy, Math.max(8, Math.abs(this.speed)))));
     const k = 1 - Math.exp(-dt * 10);
     this.pitch += (targetPitch - this.pitch) * k;
     const targetRoll = -this.input.steer * Math.min(1, Math.abs(this.speed) / 30) * 0.07 + this.slip * 0.004;
