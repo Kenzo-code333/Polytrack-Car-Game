@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>PolyRush Racing</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three.module.min.js" } }
+  </script>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- Main menu -->
+  <section id="menu" class="screen">
+    <div class="topbar">
+      <div class="coins">🪙 <span class="coin-count">0</span></div>
+      <button id="btn-mute" class="icon-btn" title="Sound (M)">🔊</button>
+    </div>
+    <div class="menu-main">
+      <h1 class="logo">Poly<span>Rush</span></h1>
+      <p class="tagline">Race · Collect · Customise</p>
+      <div class="menu-buttons">
+        <button id="btn-play" class="btn primary big">🏁 Race</button>
+        <button id="btn-garage" class="btn">🔧 Garage</button>
+        <button id="btn-online" class="btn ghost">🌐 Online with friends <small>soon</small></button>
+        <button id="btn-help" class="btn ghost">❔ How to play</button>
+        <button id="menu-chests" class="btn chest hidden">🎁 Open treasure chest (<span id="menu-chests-count">0</span>)</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Map, season and difficulty selection -->
+  <section id="select" class="screen hidden">
+    <div class="panel wide">
+      <div class="panel-head">
+        <button id="select-back" class="btn small ghost">← Back</button>
+        <h2>Choose your race</h2>
+        <div class="coins">🪙 <span class="coin-count">0</span></div>
+      </div>
+      <h3>Track</h3>
+      <div id="map-list" class="card-row"></div>
+      <h3>Season</h3>
+      <div id="season-list" class="card-row seasons"></div>
+      <div class="options">
+        <div><h3>Opponents</h3><div id="diff-list" class="chips"></div></div>
+        <div><h3>Laps</h3><div id="laps-list" class="chips"></div></div>
+      </div>
+      <div class="start-row">
+        <span id="select-best"></span>
+        <button id="select-start" class="btn primary big">Start race ▶</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Garage -->
+  <section id="garage" class="screen hidden">
+    <div class="garage-panel">
+      <div class="panel-head">
+        <button id="garage-back" class="btn small ghost">← Back</button>
+        <h2>Garage</h2>
+        <div class="coins">🪙 <span id="garage-coins">0</span></div>
+      </div>
+      <div id="garage-tabs" class="tabs"></div>
+      <div id="garage-parts" class="parts"></div>
+      <div id="garage-stats" class="stats"></div>
+      <button id="garage-action" class="btn primary">Equip</button>
+      <p class="hint">Drag the car to spin it. Earn coins by collecting them on the track and finishing races.</p>
+    </div>
+  </section>
+
+  <!-- Help -->
+  <section id="help" class="screen hidden">
+    <div class="panel">
+      <h2>How to play</h2>
+      <table class="keys">
+        <tr><td><kbd>W</kbd><kbd>↑</kbd></td><td>Accelerate</td></tr>
+        <tr><td><kbd>S</kbd><kbd>↓</kbd></td><td>Brake / reverse</td></tr>
+        <tr><td><kbd>A</kbd><kbd>D</kbd><kbd>←</kbd><kbd>→</kbd></td><td>Steer</td></tr>
+        <tr><td><kbd>Space</kbd></td><td>Drift (handbrake)</td></tr>
+        <tr><td><kbd>E</kbd><kbd>Shift</kbd></td><td>Use power-up</td></tr>
+        <tr><td><kbd>R</kbd></td><td>Reset car onto the track</td></tr>
+        <tr><td><kbd>C</kbd></td><td>Change camera</td></tr>
+        <tr><td><kbd>Esc</kbd><kbd>P</kbd></td><td>Pause</td></tr>
+        <tr><td><kbd>M</kbd></td><td>Mute</td></tr>
+      </table>
+      <h3>Power-ups (drive through ❓ boxes)</h3>
+      <ul class="powerups">
+        <li>🚀 <b>Speed Boost</b> — a burst of nitro.</li>
+        <li>🟤 <b>Mud Splash</b> — throws mud at the racer ahead. If you get hit, mud covers your screen!</li>
+        <li>🛡️ <b>Shield</b> — blocks one mud splash or oil slick.</li>
+        <li>🧲 <b>Coin Magnet</b> — pulls nearby coins to you.</li>
+        <li>🛢️ <b>Oil Slick</b> — drop it behind you to spin out chasers.</li>
+      </ul>
+      <p>Blue arrow pads give a free boost. Collect 🪙 coins on the road, then spend them in the garage.
+        Win a race to earn a 🎁 treasure chest with coins, parts or exclusive upgrades!</p>
+      <button id="help-back" class="btn primary">Got it</button>
+    </div>
+  </section>
+
+  <section id="loading" class="screen hidden">
+    <div class="loading"><div class="spinner"></div>Building the track…</div>
+  </section>
+
+  <!-- Pause -->
+  <section id="pause" class="screen hidden">
+    <div class="panel small-panel">
+      <h2>Paused</h2>
+      <button id="pause-resume" class="btn primary">Resume</button>
+      <button id="pause-restart" class="btn">Restart</button>
+      <button id="pause-quit" class="btn ghost">Quit to menu</button>
+    </div>
+  </section>
+
+  <!-- Results -->
+  <section id="results" class="screen hidden">
+    <div class="panel">
+      <h2 id="res-title">Finished</h2>
+      <p id="res-sub" class="sub"></p>
+      <div class="res-grid">
+        <div><label>Total time</label><b id="res-time"></b></div>
+        <div><label>Best lap</label><b id="res-lap"></b></div>
+      </div>
+      <p id="res-coins" class="res-coins"></p>
+      <table id="res-table" class="standings"></table>
+      <button id="res-chest" class="btn chest big hidden">🎁 Open your treasure chest!</button>
+      <div class="row">
+        <button id="res-again" class="btn primary">Race again</button>
+        <button id="res-tracks" class="btn">Change track</button>
+        <button id="res-menu" class="btn ghost">Menu</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Treasure chest -->
+  <section id="chest-screen" class="screen hidden">
+    <div class="chest-stage">
+      <div class="rays"></div>
+      <div id="chest" class="chest-box">
+        <div class="lid"><div class="band"></div></div>
+        <div class="base"><div class="band"></div><div class="lock"></div></div>
+        <div class="glow"></div>
+      </div>
+      <p id="chest-hint">Tap the chest to open it!</p>
+      <p id="chest-left" class="sub"></p>
+      <div id="reward" class="reward hidden">
+        <div id="reward-rarity" class="rarity"></div>
+        <div id="reward-icon" class="reward-icon"></div>
+        <div id="reward-name" class="reward-name"></div>
+        <div id="reward-desc" class="sub"></div>
+        <div class="row">
+          <button id="reward-equip" class="btn buy">Equip now</button>
+          <button id="reward-next" class="btn chest">Open next 🎁</button>
+          <button id="reward-done" class="btn primary">Collect</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- In-race HUD -->
+  <div id="hud" class="hidden">
+    <div class="hud-tl">
+      <div id="hud-pos">1</div>
+      <div id="hud-lap">Lap 1/3</div>
+      <ol id="hud-board"></ol>
+    </div>
+    <div class="hud-tc"><div class="hud-coins">🪙 <span id="hud-coins">0</span></div><div id="hud-effects"></div></div>
+    <div class="hud-tr">
+      <div id="hud-time">0:00.00</div>
+      <div id="hud-best">Best lap --</div>
+      <button id="pause-btn" class="icon-btn">⏸</button>
+    </div>
+    <canvas id="minimap" width="190" height="190"></canvas>
+    <div id="hud-item"><div class="slot"><span id="item-icon"></span></div><div id="item-name">No item</div><div class="hint">E / Shift</div></div>
+    <div id="hud-speed"><span id="speed-val">0</span><small>km/h</small><div class="speed-track"><i id="speed-bar"></i></div></div>
+    <div id="hud-msg"></div>
+    <div id="hud-countdown"></div>
+    <div id="hud-wrong">⚠ WRONG WAY</div>
+    <div id="boost-lines"></div>
+    <div id="mud-overlay"></div>
+    <div id="touch">
+      <div class="tleft">
+        <button data-key="TouchLeft">◀</button>
+        <button data-key="TouchRight">▶</button>
+      </div>
+      <div class="tright">
+        <button data-key="TouchItem" class="titem">★</button>
+        <button data-key="TouchDrift">⤵</button>
+        <button data-key="TouchBrake">■</button>
+        <button data-key="TouchGas" class="tgas">▲</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
