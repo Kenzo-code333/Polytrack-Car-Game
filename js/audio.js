@@ -4,6 +4,24 @@ export class Sound {
     this.ctx = null;
     this.muted = false;
     this.engineNodes = null;
+    this.volumes = { music: 0.6, sfx: 0.8 };
+    try {
+      const v = JSON.parse(localStorage.getItem('polyrush.volume') || '{}');
+      for (const k of ['music', 'sfx']) if (typeof v[k] === 'number') this.volumes[k] = Math.min(1, Math.max(0, v[k]));
+    } catch {
+      // ignore
+    }
+    this.onReady = null;
+  }
+
+  setVolume(kind, value) {
+    this.volumes[kind] = Math.min(1, Math.max(0, value));
+    if (this.ctx) this[kind + 'Gain'].gain.setTargetAtTime(this.volumes[kind], this.ctx.currentTime, 0.05);
+    try {
+      localStorage.setItem('polyrush.volume', JSON.stringify(this.volumes));
+    } catch {
+      // ignore
+    }
   }
 
   init() {
@@ -16,6 +34,12 @@ export class Sound {
       this.master = this.ctx.createGain();
       this.master.gain.value = this.muted ? 0 : 0.5;
       this.master.connect(this.ctx.destination);
+      this.sfxGain = this.ctx.createGain();
+      this.sfxGain.gain.value = this.volumes.sfx;
+      this.sfxGain.connect(this.master);
+      this.musicGain = this.ctx.createGain();
+      this.musicGain.gain.value = this.volumes.music;
+      this.musicGain.connect(this.master);
       const len = this.ctx.sampleRate;
       this.noiseBuf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
       const d = this.noiseBuf.getChannelData(0);
@@ -23,6 +47,7 @@ export class Sound {
     } catch {
       this.ctx = null;
     }
+    if (this.ctx && this.onReady) this.onReady();
   }
 
   toggleMute() {
@@ -41,7 +66,7 @@ export class Sound {
     if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur);
     g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    o.connect(g).connect(this.master);
+    o.connect(g).connect(this.sfxGain);
     o.start(t);
     o.stop(t + dur + 0.02);
   }
@@ -58,7 +83,7 @@ export class Sound {
     const g = this.ctx.createGain();
     g.gain.setValueAtTime(vol, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + dur);
-    s.connect(f).connect(g).connect(this.master);
+    s.connect(f).connect(g).connect(this.sfxGain);
     s.start(t);
     s.stop(t + dur + 0.02);
   }
@@ -142,7 +167,7 @@ export class Sound {
     g.gain.value = 0;
     o1.connect(f);
     o2.connect(f);
-    f.connect(g).connect(this.master);
+    f.connect(g).connect(this.sfxGain);
     o1.start();
     o2.start();
     this.engineNodes = { o1, o2, f, g };

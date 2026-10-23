@@ -46,7 +46,8 @@ export class Track {
     const spot = (frac, back, ahead) => {
       let best = Math.floor(frac * N);
       let bestScore = Infinity;
-      for (let i = Math.floor((frac - 0.05) * N); i <= (frac + 0.05) * N; i++) {
+      const win = feat.exact ? 0 : 0.05;
+      for (let i = Math.floor((frac - win) * N); i <= Math.floor((frac + win) * N); i++) {
         const score = bendiness(i, back, ahead);
         if (score < bestScore) {
           bestScore = score;

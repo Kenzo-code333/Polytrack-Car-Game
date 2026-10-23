@@ -107,7 +107,67 @@ export const MAPS = [
     points: [[0, 0, -185], [102, 2, -172], [172, 4, -102], [184, 2, 0], [152, 0, 104], [62, 3, 162],
       [-40, 6, 152], [-102, 4, 92], [-92, 1, 22], [-152, 3, -42], [-134, 5, -132], [-62, 2, -184]],
   },
+  {
+    id: 'oval', name: 'Sunset Speedway', stars: 1, laps: 3, width: 20,
+    desc: 'A huge, wide oval built for flat-out speed and long jumps.',
+    terrainFollow: true, hills: 8, trees: 420,
+    features: { ramps: [0.24, 0.74], bumps: [0.5] },
+    points: ellipse(12, 200, 115, (a) => 3 + 3 * Math.sin(a * 2)),
+  },
+  {
+    id: 'lakeside', name: 'Lakeside Loop', stars: 2, laps: 3, width: 17,
+    desc: 'A wavy loop around a sparkling lake, with a jump over the shore.',
+    terrainFollow: true, hills: 12, trees: 600, water: -1.2,
+    base: (x, z) => {
+      const d = Math.hypot(x, z);
+      return d < 75 ? -(75 - d) * 0.14 : 0;
+    },
+    features: { ramps: [0.35], bumps: [0.12, 0.7] },
+    points: ellipse(14, 125, 125, (a) => 2 + 4 * Math.sin(a * 3 + 1), (a) => 1 + 0.18 * Math.sin(a * 3)),
+  },
+  {
+    id: 'serpent', name: 'Serpent Ridge', stars: 3, laps: 3, width: 15,
+    desc: 'A long, snaking ridge road full of climbs, drops and switchbacks.',
+    terrainFollow: true, hills: 20, trees: 700,
+    features: { ramps: [0.18, 0.66], bumps: [0.4, 0.88] },
+    points: [[-160, 0, -120], [-80, 6, -150], [0, 12, -112], [62, 8, -150], [150, 14, -122], [172, 18, -32],
+      [112, 12, 10], [162, 6, 80], [100, 2, 150], [20, 8, 112], [-40, 14, 150], [-120, 10, 122],
+      [-92, 4, 42], [-172, 2, 0]],
+  },
 ];
+
+// Closed loop of control points on an ellipse; `height(a)` and `wobble(a)` shape it.
+function ellipse(n, rx, rz, height = () => 0, wobble = () => 1) {
+  const pts = [];
+  for (let k = 0; k < n; k++) {
+    const a = (k / n) * Math.PI * 2;
+    const w = wobble(a);
+    pts.push([Math.round(Math.sin(a) * rx * w), +height(a).toFixed(1), Math.round(-Math.cos(a) * rz * w)]);
+  }
+  return pts;
+}
+
+// One soundtrack per track. Notes are MIDI numbers; scales are semitone steps.
+export const SCALES = {
+  major: [0, 2, 4, 5, 7, 9, 11],
+  minor: [0, 2, 3, 5, 7, 8, 10],
+  dorian: [0, 2, 3, 5, 7, 9, 10],
+  mixolydian: [0, 2, 4, 5, 7, 9, 10],
+  lydian: [0, 2, 4, 6, 7, 9, 11],
+  phrygian: [0, 1, 3, 5, 7, 8, 10],
+};
+
+export const TUNES = {
+  menu: { name: 'Garage Groove', bpm: 96, root: 57, scale: 'minor', prog: [0, 5, 3, 4], style: 'chill', lead: 'triangle' },
+  valley: { name: 'Green Valley Run', bpm: 122, root: 60, scale: 'major', prog: [0, 4, 5, 3], style: 'pop', lead: 'square' },
+  forest: { name: 'Woodland Rush', bpm: 114, root: 62, scale: 'dorian', prog: [0, 3, 6, 4], style: 'funk', lead: 'triangle' },
+  bridge: { name: 'Over the Bridge', bpm: 128, root: 55, scale: 'mixolydian', prog: [0, 6, 3, 4], style: 'pop', lead: 'sawtooth' },
+  mountain: { name: 'Summit Fever', bpm: 140, root: 52, scale: 'minor', prog: [0, 5, 6, 4], style: 'rock', lead: 'sawtooth' },
+  coast: { name: 'Beach Cruise', bpm: 118, root: 65, scale: 'major', prog: [0, 3, 4, 4], style: 'tropical', lead: 'triangle' },
+  oval: { name: 'Sunset Drive', bpm: 144, root: 57, scale: 'minor', prog: [0, 5, 2, 6], style: 'synth', lead: 'sawtooth' },
+  lakeside: { name: 'Lake Breeze', bpm: 104, root: 64, scale: 'lydian', prog: [0, 1, 4, 3], style: 'chill', lead: 'triangle' },
+  serpent: { name: 'Serpent Chase', bpm: 136, root: 59, scale: 'phrygian', prog: [0, 1, 6, 5], style: 'rock', lead: 'square' },
+};
 
 export const DIFFICULTIES = {
   easy: { id: 'easy', name: 'Easy', speed: 0.84, skill: 0.75, rubber: 0.05 },

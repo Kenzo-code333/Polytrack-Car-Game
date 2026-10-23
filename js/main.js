@@ -1,6 +1,6 @@
 // Entry point: renderer, screens and game flow.
 import * as THREE from 'three';
-import { MAPS, SEASONS, DIFFICULTIES, PARTS, PLACE_BONUS, CATEGORIES } from './data.js';
+import { MAPS, SEASONS, DIFFICULTIES, PARTS, PLACE_BONUS, CATEGORIES, TUNES } from './data.js';
 import { profile, saveProfile, addCoins, grantPart, equipPart, recordBest } from './save.js';
 import { Race } from './race.js';
 import { HUD, formatTime, ordinal } from './hud.js';
@@ -9,6 +9,9 @@ import { Garage } from './garage.js';
 import { Sound } from './audio.js';
 import { input, bindTouchControls } from './input.js';
 import { Online, randomCode, cleanCode, cleanName } from './online.js';
+import { Music } from './music.js';
+import { Editor } from './editor.js';
+import { allMaps, findMap, setNetMap } from './tracks.js';
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -23,10 +26,13 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 
 const audio = new Sound();
+const music = new Music(audio);
+audio.onReady = () => music.resume();
 const hud = new HUD();
 const showroom = new Showroom(renderer);
 showroom.setCar(profile.equipped);
 let race = null;
+let editor = null;
 
 const selection = { map: MAPS[0].id, season: 'spring', difficulty: 'normal', laps: 3 };
 try {
@@ -34,7 +40,7 @@ try {
 } catch {
   // ignore
 }
-if (!MAPS.some((m) => m.id === selection.map)) selection.map = MAPS[0].id;
+if (!findMap(selection.map)) selection.map = MAPS[0].id;
 if (!SEASONS[selection.season]) selection.season = 'spring';
 if (!DIFFICULTIES[selection.difficulty]) selection.difficulty = 'normal';
 
@@ -45,6 +51,9 @@ function showScreen(id) {
   currentScreen = id;
   for (const el of document.querySelectorAll('.screen')) el.classList.toggle('hidden', el.id !== id);
   showroom.active = !race;
+  if (!race && id !== 'loading') music.play('menu');
+  if (id !== 'editor' && editor) editor.close();
+  updateNowPlaying();
 }
 
 function refreshCoins() {
@@ -83,6 +92,43 @@ $('btn-help').addEventListener('click', () => {
   showScreen('help');
 });
 $('help-back').addEventListener('click', () => showScreen('menu'));
+$('btn-editor').addEventListener('click', () => {
+  audio.play('click');
+  showScreen('editor');
+  editor.open();
+});
+$('btn-settings').addEventListener('click', () => {
+  audio.play('click');
+  showScreen('settings');
+});
+$('settings-back').addEventListener('click', () => showScreen('menu'));
+
+// Volume sliders (the same pair appears in Sound settings and in the pause menu).
+for (const group of document.querySelectorAll('.vol-group')) {
+  group.innerHTML = [['music', '🎵 Music'], ['sfx', '🔊 Effects']].map(([k, label]) => {
+    const id = `vol-${k}-${group.closest('.screen').id}`;
+    return `<label class="vol" for="${id}">${label}<input id="${id}" type="range" min="0" max="100" data-vol="${k}" /><output></output></label>`;
+  }).join('');
+}
+function syncVolumes() {
+  for (const el of document.querySelectorAll('[data-vol]')) {
+    const v = Math.round(audio.volumes[el.dataset.vol] * 100);
+    el.value = v;
+    el.nextElementSibling.textContent = v + '%';
+  }
+}
+for (const el of document.querySelectorAll('[data-vol]')) {
+  el.addEventListener('input', () => {
+    audio.init();
+    audio.setVolume(el.dataset.vol, el.value / 100);
+    syncVolumes();
+  });
+}
+syncVolumes();
+function updateNowPlaying() {
+  const t = TUNES[music.wanted] || TUNES.menu;
+  for (const el of document.querySelectorAll('.now-playing')) el.textContent = t.name;
+}
 $('menu-chests').addEventListener('click', () => openChest('menu'));
 $('btn-mute').addEventListener('click', () => {
   const m = audio.toggleMute();
@@ -150,10 +196,10 @@ function openMapSelect() {
   showScreen('select');
   const maps = $('map-list');
   maps.innerHTML = '';
-  for (const m of MAPS) {
+  for (const m of allMaps()) {
     const card = document.createElement('button');
     card.className = 'map-card' + (m.id === selection.map ? ' selected' : '');
-    card.innerHTML = `<canvas width="220" height="150"></canvas><div class="map-name">${m.name}</div>
+    card.innerHTML = `<canvas width="220" height="150"></canvas><div class="map-name">${esc(m.name)}${m.custom ? '<span class="custom-tag">Yours</span>' : ''}</div>
       <div class="map-stars">${'★'.repeat(m.stars)}${'☆'.repeat(3 - m.stars)}</div><div class="map-desc">${m.desc}</div>`;
     drawPreview(card.querySelector('canvas'), m);
     card.addEventListener('click', () => {
@@ -216,12 +262,16 @@ function startRace(cfg = null) {
     race = null;
   }
   raceCfg = cfg || { map: selection.map, season: selection.season, difficulty: selection.difficulty, laps: selection.laps, net: null };
+  const mapDef = raceCfg.mapDef || findMap(raceCfg.map) || MAPS[0];
+  raceCfg.mapDef = mapDef;
+  music.play(mapDef.music || mapDef.id);
+  updateNowPlaying();
   showScreen('loading');
   // Let the loading screen paint before the (synchronous) world build.
   setTimeout(() => {
     input.clearPressed();
     race = new Race(renderer, {
-      map: MAPS.find((m) => m.id === raceCfg.map),
+      map: raceCfg.mapDef,
       season: SEASONS[raceCfg.season],
       difficulty: DIFFICULTIES[raceCfg.difficulty],
       laps: raceCfg.laps,
@@ -234,11 +284,13 @@ function startRace(cfg = null) {
     showScreen(null);
     hud.show(true);
     $('pause-restart').classList.toggle('hidden', !!raceCfg.net);
+    $('bar-restart').classList.toggle('hidden', !!raceCfg.net);
   }, 50);
 }
 
 function quitRace() {
   const wasOnline = !!(race && race.net);
+  const fromEditor = !!(raceCfg && raceCfg.fromEditor);
   if (race) race.dispose();
   race = null;
   clearInterval(resultsTimer);
@@ -252,6 +304,11 @@ function quitRace() {
       openOnline();
       return;
     }
+  }
+  if (fromEditor) {
+    showScreen('editor');
+    editor.open();
+    return;
   }
   showScreen('menu');
 }
@@ -274,11 +331,12 @@ function endRace(res) {
     profile.wins++;
     profile.chests = (profile.chests || 0) + 1;
   }
-  const record = recordBest(`${raceCfg.map}:${raceCfg.season}:${raceCfg.laps}`, res.time);
+  const record = recordBest(`${raceCfg.mapDef.id}:${raceCfg.season}:${raceCfg.laps}`, res.time);
+  if (res.online) online.set({ res: { raceId: raceCfg.net.raceId, place: res.place } });
   saveProfile();
 
   $('res-title').textContent = won ? '🏆 Victory!' : `You finished ${ordinal(res.place)}`;
-  $('res-sub').textContent = `${MAPS.find((m) => m.id === raceCfg.map).name} · ${SEASONS[raceCfg.season].name} · `
+  $('res-sub').textContent = `${raceCfg.mapDef.name} · ${SEASONS[raceCfg.season].name} · `
     + (res.online ? 'Online' : DIFFICULTIES[raceCfg.difficulty].name);
   $('res-time').textContent = formatTime(res.time) + (record ? '  ⭐ New record!' : '');
   $('res-lap').textContent = formatTime(res.bestLap);
@@ -289,6 +347,7 @@ function endRace(res) {
   if (res.online) resultsTimer = setInterval(() => race && renderStandings(race.results().standings), 500);
   $('res-again').textContent = res.online ? 'Back to lobby' : 'Race again';
   $('res-tracks').classList.toggle('hidden', !!res.online);
+  $('res-tracks').textContent = raceCfg.fromEditor ? 'Back to editor' : 'Change track';
   $('res-chest').classList.toggle('hidden', !won);
   refreshCoins();
   showScreen('results');
@@ -297,11 +356,12 @@ function endRace(res) {
 $('res-chest').addEventListener('click', () => openChest('results'));
 $('res-again').addEventListener('click', () => {
   if (race && race.net) quitRace();
-  else startRace();
+  else startRace(raceCfg);
 });
 $('res-tracks').addEventListener('click', () => {
+  const fromEditor = raceCfg && raceCfg.fromEditor;
   quitRace();
-  openMapSelect();
+  if (!fromEditor) openMapSelect();
 });
 $('res-menu').addEventListener('click', () => quitRace());
 
@@ -318,10 +378,24 @@ window.addEventListener('keydown', (e) => {
   }
   if (e.code === 'KeyM') $('btn-mute').click();
 });
-$('pause-btn').addEventListener('click', () => setPaused(true));
+$('bar-menu').addEventListener('click', () => setPaused(true));
+$('bar-sound').addEventListener('click', () => setPaused(true));
+$('bar-restart').addEventListener('click', () => startRace(raceCfg));
+$('bar-exit').addEventListener('click', () => quitRace());
 $('pause-resume').addEventListener('click', () => setPaused(false));
-$('pause-restart').addEventListener('click', () => startRace());
+$('pause-restart').addEventListener('click', () => startRace(raceCfg));
 $('pause-quit').addEventListener('click', () => quitRace());
+
+// ---------- track editor ----------
+
+editor = new Editor({
+  audio,
+  onBack: () => showScreen('menu'),
+  onTest: (mapDef) => startRace({
+    mapDef, map: mapDef.id, season: selection.season, difficulty: selection.difficulty, laps: 3, net: null, fromEditor: true,
+  }),
+  onSaved: () => {},
+});
 
 // ---------- online ----------
 
@@ -338,18 +412,93 @@ function fillSelect(el, items, value) {
   el.innerHTML = items.map(([v, label]) => `<option value="${esc(v)}">${esc(label)}</option>`).join('');
   el.value = String(value);
 }
-fillSelect($('lobby-map'), MAPS.map((m) => [m.id, m.name]), MAPS[0].id);
+function refreshLobbyMaps(extra) {
+  const el = $('lobby-map');
+  const value = el.value || MAPS[0].id;
+  const items = allMaps().map((m) => [m.id, m.custom ? `✏️ ${m.name}` : m.name]);
+  if (extra && !items.some(([id]) => id === extra.id)) items.push([extra.id, `✏️ ${extra.name}`]);
+  fillSelect(el, items, items.some(([id]) => id === value) ? value : MAPS[0].id);
+}
+refreshLobbyMaps();
 fillSelect($('lobby-season'), Object.values(SEASONS).map((s) => [s.id, `${s.icon} ${s.name}`]), 'spring');
 fillSelect($('lobby-laps'), [[1, '1 lap'], [3, '3 laps'], [5, '5 laps']], 3);
 
+// A custom track arrives with the host's lobby; build it once per change.
+let netTrackKey = '';
 function validLobby(lb) {
   if (!lb || typeof lb !== 'object') return null;
-  if (!MAPS.some((m) => m.id === lb.map) || !SEASONS[lb.season] || ![1, 3, 5].includes(lb.laps)) return null;
-  return lb;
+  if (!SEASONS[lb.season] || ![1, 3, 5].includes(lb.laps)) return null;
+  if (MAPS.some((m) => m.id === lb.map)) return lb;
+  if (!lb.track || typeof lb.track !== 'object') return null;
+  const key = JSON.stringify(lb.track);
+  if (key !== netTrackKey) {
+    netTrackKey = key;
+    setNetMap({ ...lb.track, id: lb.map });
+  }
+  return findMap(lb.map) ? lb : null;
 }
+
+// Host: the lobby settings from the selects, carrying the track itself when it is a custom one.
+function lobbyFromInputs(extra = {}) {
+  const map = findMap($('lobby-map').value) || MAPS[0];
+  return {
+    ...(hostLobby || {}),
+    map: map.id,
+    season: $('lobby-season').value,
+    laps: Number($('lobby-laps').value),
+    track: map.custom ? map.source : null,
+    ...extra,
+  };
+}
+
+const POINTS = [10, 8, 6, 5, 4, 3, 2, 1];
+const tallied = new Set();
+// Host: add each player's finishing place from the latest race to the championship.
+function tallyResults() {
+  if (!online.isHost() || !hostLobby || !hostLobby.startId) return;
+  let changed = false;
+  const scores = { ...(hostLobby.scores || {}) };
+  for (const p of online.players()) {
+    const r = p.presence.res;
+    if (!r || r.raceId !== hostLobby.startId || !Number.isInteger(r.place) || r.place < 1 || r.place > 8) continue;
+    const key = p.peer + ':' + r.raceId;
+    if (tallied.has(key)) continue;
+    tallied.add(key);
+    const name = cleanName(p.presence.name) || 'Racer';
+    const s = scores[name] || { pts: 0, wins: 0 };
+    scores[name] = { pts: s.pts + POINTS[r.place - 1], wins: s.wins + (r.place === 1 ? 1 : 0) };
+    changed = true;
+  }
+  if (changed && Object.keys(scores).length <= 16) {
+    hostLobby = { ...hostLobby, scores };
+    online.set({ lobby: hostLobby });
+  }
+}
+
+const INVITE_LINK = typeof window.POLYRUSH_LINK === 'string' ? window.POLYRUSH_LINK : '';
+function inviteText(code) {
+  return INVITE_LINK
+    ? `Race me in PolyRush! ${INVITE_LINK}#race-${code.toLowerCase()} (code ${code})`
+    : `Race me in PolyRush! Open the game, press Online and join with code ${code}`;
+}
+$('invite-copy').addEventListener('click', () => {
+  const field = $('invite-text');
+  const done = () => toast('Invite copied. Paste it to your friends!');
+  const fallback = () => {
+    field.focus();
+    field.select();
+    toast('Press Ctrl+C (or long-press) to copy the invite.');
+  };
+  try {
+    navigator.clipboard.writeText(field.value).then(done, fallback);
+  } catch {
+    fallback();
+  }
+});
 
 async function openOnline() {
   showScreen('online');
+  refreshLobbyMaps();
   await online.ready;
   renderOnline();
 }
@@ -375,12 +524,21 @@ function renderOnline() {
   const amHost = online.isHost();
   for (const id of ['lobby-map', 'lobby-season', 'lobby-laps']) $(id).disabled = !amHost;
   const lb = amHost ? hostLobby : validLobby(host && host.presence.lobby);
+  $('invite-text').value = inviteText(online.code);
   if (lb && !amHost) {
+    if (![...$('lobby-map').options].some((o) => o.value === lb.map)) refreshLobbyMaps(findMap(lb.map));
     $('lobby-map').value = lb.map;
     $('lobby-season').value = lb.season;
     $('lobby-laps').value = String(lb.laps);
   }
   $('lobby-start').classList.toggle('hidden', !amHost);
+  const scores = Object.entries((lb && lb.scores && typeof lb.scores === 'object') ? lb.scores : {})
+    .filter(([, s]) => s && Number.isFinite(s.pts))
+    .sort((a, b) => b[1].pts - a[1].pts);
+  $('lobby-champ').classList.toggle('hidden', scores.length === 0);
+  $('champ-table').innerHTML = scores
+    .map(([name, s], i) => `<tr><td>${i + 1}</td><td>${esc(cleanName(name))}</td><td>🏆 ${Math.max(0, s.wins | 0)}</td><td>${Math.max(0, s.pts | 0)} pts</td></tr>`)
+    .join('');
   $('lobby-status').textContent = amHost
     ? (players.length > 1 ? `${players.length} racers ready. Start when everyone is here!` : 'Waiting for friends to join with the code…')
     : 'Waiting for the host to start the race…';
@@ -402,7 +560,8 @@ $('online-create').addEventListener('click', async () => {
   audio.init();
   saveName();
   const code = randomCode();
-  hostLobby = { map: $('lobby-map').value, season: $('lobby-season').value, laps: Number($('lobby-laps').value), startId: 0, grid: [] };
+  hostLobby = null;
+  hostLobby = lobbyFromInputs({ startId: 0, grid: [], scores: {} });
   try {
     await online.join(code, { ...myPresence(true), lobby: hostLobby });
   } catch {
@@ -437,20 +596,14 @@ $('online-code').addEventListener('keydown', (e) => {
 for (const id of ['lobby-map', 'lobby-season', 'lobby-laps']) {
   $(id).addEventListener('change', () => {
     if (!online.isHost()) return;
-    hostLobby = { ...(hostLobby || {}), map: $('lobby-map').value, season: $('lobby-season').value, laps: Number($('lobby-laps').value) };
+    hostLobby = lobbyFromInputs();
     online.set({ lobby: hostLobby });
   });
 }
 
 $('lobby-start').addEventListener('click', () => {
   if (!online.isHost()) return;
-  hostLobby = {
-    map: $('lobby-map').value,
-    season: $('lobby-season').value,
-    laps: Number($('lobby-laps').value),
-    startId: Date.now(),
-    grid: online.players().map((p) => p.peer),
-  };
+  hostLobby = lobbyFromInputs({ startId: Date.now(), grid: online.players().map((p) => p.peer) });
   online.set({ lobby: hostLobby, host: true });
   lastStartSeen = hostLobby.startId;
   beginOnlineRace(hostLobby);
@@ -495,9 +648,10 @@ function watchHost() {
 
 online.onChange(() => {
   watchHost();
+  tallyResults();
   if (online.isHost() && !hostLobby) {
     const prev = online.players().find((p) => validLobby(p.presence.lobby));
-    hostLobby = prev ? { ...prev.presence.lobby } : { map: MAPS[0].id, season: 'spring', laps: 3, startId: 0, grid: [] };
+    hostLobby = prev ? { ...prev.presence.lobby } : { map: MAPS[0].id, season: 'spring', laps: 3, startId: 0, grid: [], scores: {} };
     online.set({ lobby: hostLobby });
   }
   renderOnline();
@@ -607,6 +761,13 @@ function frame(now) {
 
 refreshCoins();
 showScreen('menu');
+const invited = /^#race-([a-z0-9]{4,6})$/i.exec(location.hash || '');
+if (invited) {
+  $('online-code').value = cleanCode(invited[1]);
+  openOnline().then(() => {
+    if (online.available) toast(`You're invited to race ${cleanCode(invited[1])}! Type your name and press Join.`);
+  });
+}
 showroom.setView('menu');
 requestAnimationFrame(frame);
-window.__game = { get race() { return race; }, profile, startRace, selection };
+window.__game = { get race() { return race; }, profile, startRace, selection, music, audio };

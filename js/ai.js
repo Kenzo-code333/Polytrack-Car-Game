@@ -81,7 +81,6 @@ export function aiDrive(racer, race, dt) {
   car.input.throttle = throttle;
   car.input.brake = brake;
   car.input.steer = steer;
-  car.input.drift = maxC > 0.7 && sp > 22 && ai.skill > 0.9;
 
   // Power-ups.
   if (racer.item && !racer.isPlayer) {

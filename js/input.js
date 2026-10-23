@@ -37,9 +37,6 @@ export const input = {
       throttle: this.isDown('ArrowUp', 'KeyW', 'TouchGas') ? 1 : 0,
       brake: this.isDown('ArrowDown', 'KeyS', 'TouchBrake') ? 1 : 0,
       steer: (right ? 1 : 0) - (left ? 1 : 0),
-      // Drift by holding gas and a direction together with Space (or Shift).
-      drift: this.isDown('Space', 'ShiftLeft', 'ShiftRight', 'TouchDrift')
-        && this.isDown('ArrowUp', 'KeyW', 'TouchGas') && (left || right),
     };
   },
 };

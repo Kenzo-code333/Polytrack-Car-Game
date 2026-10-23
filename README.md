@@ -17,15 +17,22 @@ python3 -m http.server 8000
 
 ## Features
 
-- **5 tracks** you pick yourself: Green Valley, Twisty Forest, Figure-8 Bridge (you drive over yourself), Mountain Pass and Coastal Speedway.
+- **8 tracks** you pick yourself: Green Valley, Twisty Forest, Figure-8 Bridge (you drive over yourself), Mountain Pass,
+  Coastal Speedway, Sunset Speedway, Lakeside Loop and Serpent Ridge.
+- **Track editor**: tap to add corners, drag them around, set heights (make bridges!), and place jump ramps and bumps.
+  The editor checks that the track is drivable, then you can test drive it, race it, or host it online.
+- **Soundtrack**: every track has its own tune, generated live in the browser. Music and effects volume can be set
+  in Sound settings or in the pause menu.
+- **In-race menu bar** to pause, restart or exit at any time.
 - **4 seasons** for any track. Each one changes the scenery, the weather and the grip:
   - 🌸 Spring: blossom trees, flowers, falling petals
   - ☀️ Summer: sunflowers, the best grip
   - 🍂 Autumn: orange trees, pumpkins, falling leaves, a little slippery
   - ❄️ Winter: snow, snowmen, an icy road, very slippery (snow chains help!)
 - **5 AI opponents** on three difficulty levels. You can race 1, 3 or 5 laps.
-- **Online races with friends**: create a race, share the 4-letter code, and everyone who opens the game's
-  claude.ai link can join. Cars, finishing order, mud hits and oil slicks are synced live.
+- **Online races with friends**: create a race and send the invite link (or the 4-letter code). Everyone who opens
+  the game's claude.ai link can join. Cars, finishing order, mud hits and oil slicks are synced live, custom tracks
+  are shared with everyone in the lobby, and a championship table adds up points across races.
 - **Jumps, bumps and hills**: yellow ramps launch you into the air, bumpy strips make you hop, and every track rolls up and down.
 - **Power-ups** from ❓ boxes:
   - 🚀 Speed Boost
@@ -48,7 +55,6 @@ python3 -m http.server 8000
 | S / ↓ | Brake / reverse |
 | A D / ← → | Steer |
 | Enter / E | Use power-up |
-| ↑ + ← / → + Space | Drift |
 | R | Reset car onto the track |
 | C | Change camera |
 | Esc / P | Pause |
@@ -69,6 +75,8 @@ python3 -m http.server 8000
 | `js/hud.js` | In-race HUD, minimap, mud overlay |
 | `js/save.js` | Saved profile (localStorage) |
 | `js/online.js` | Online lobby and room connection |
+| `js/editor.js`, `js/trackcheck.js`, `js/tracks.js` | Track editor, layout checks, custom track storage |
+| `js/music.js` | Procedural soundtrack |
 | `js/audio.js` | Synthesised sound effects and engine |
 
 ## Online play

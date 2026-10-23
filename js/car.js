@@ -389,7 +389,7 @@ export class Car {
     this.steerVis = 0;
     this.roll = 0;
     this.pitch = 0;
-    this.input = { throttle: 0, brake: 0, steer: 0, drift: false };
+    this.input = { throttle: 0, brake: 0, steer: 0 };
     this.proj = {};
     this.hint = -1;
     this.speed = 0;
@@ -450,7 +450,6 @@ export class Car {
 
     let grip = st.grip * env.seasonGrip;
     if (env.winter) grip *= 1 + st.winter;
-    if (inp.drift && Math.abs(vf) > 8) grip *= 0.3;
     if (env.spin) grip *= 0.15;
     this.grip = grip;
     vl *= Math.exp(-grip * dt);
@@ -460,7 +459,7 @@ export class Car {
 
     const speedFactor = Math.max(-1, Math.min(1, vf / 7));
     const highSpeedDamp = 1 - 0.45 * Math.min(1, Math.max(0, vf) / st.speed);
-    let turn = st.turn * inp.steer * speedFactor * highSpeedDamp * (inp.drift ? 1.35 : 1);
+    let turn = st.turn * inp.steer * speedFactor * highSpeedDamp;
     if (env.mud) turn += Math.sin(performance.now() * 0.006) * 0.25;
     if (env.spin) turn = 10;
     // Ease the turn rate in and out so the car sweeps through corners instead of snapping.
