@@ -34,16 +34,21 @@ python3 -m http.server 8000
   the game's claude.ai link can join. Cars, finishing order, mud hits and oil slicks are synced live, custom tracks
   are shared with everyone in the lobby, and a championship table adds up points across races.
 - **Jumps, bumps and hills**: yellow ramps launch you into the air, bumpy strips make you hop, and every track rolls up and down.
-- **Power-ups** from ❓ boxes:
-  - 🚀 Speed Boost
-  - 🟤 Mud Splash: thrown at the racer ahead. When you get hit, mud covers your screen.
-  - 🛡️ Shield
-  - 🧲 Coin Magnet
-  - 🛢️ Oil Slick
+- **11 power-ups** from ❓ boxes (press Space to use):
+  - 🚀 Speed Boost and 🚀×3 Triple Boost
+  - 🟤 Mud Splash: a big slowdown for 2 seconds, and mud covers the victim's screen
+  - 🎯 Homing Rocket: chases the racer ahead and spins them out
+  - ⚡ Lightning: stuns every racer ahead of you
+  - 💥 Shockwave: blasts nearby cars away
+  - 👻 Ghost: drive through cars, immune to attacks
+  - 🌀 Warp Jump: teleport 45 m up the road
+  - 🛡️ Shield, 🧲 Coin Magnet and 🛢️ Oil Slick
 - **Boost pads** on the road.
 - **Coins** on the track, plus a coin bonus for your finishing place.
 - **Treasure chests** for every win. A chest holds Common or Rare coin rewards, Epic shop parts or Legendary chest-only parts.
-- **Garage** with 11 categories and over 60 parts: paint, body, wheels, tires, engine, nitro, spoiler, exhaust flames, underglow, decals and toppers. Performance parts change your top speed, acceleration, handling, grip and nitro.
+- **12 cars** to choose from: Classic, Sport, Dune Buggy, Muscle, Go-Kart, Retro Bubble, Pickup Truck, Rally Hatch,
+  Monster Truck, Cyber Wedge, Hypercar and Formula Racer.
+- **Garage** with 11 categories and over 65 parts: paint, body, wheels, tires, engine, nitro, spoiler, exhaust flames, underglow, decals and toppers. Performance parts change your top speed, acceleration, handling, grip and nitro.
 - Progress (coins, parts, records) is saved in your browser.
 - Touch controls on phones and tablets.
 
@@ -54,7 +59,7 @@ python3 -m http.server 8000
 | W / ↑ | Accelerate |
 | S / ↓ | Brake / reverse |
 | A D / ← → | Steer |
-| Enter / E | Use power-up |
+| Space / Enter | Use power-up |
 | R | Reset car onto the track |
 | C | Change camera |
 | Esc / P | Pause |

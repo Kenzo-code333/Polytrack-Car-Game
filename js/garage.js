@@ -6,7 +6,8 @@ import { profile, buyPart, equipPart } from './save.js';
 const $ = (id) => document.getElementById(id);
 
 const GROUPS = [
-  { id: 'perf', name: 'Performance', hint: 'speed & handling', cats: ['engine', 'tires', 'nitro', 'body'] },
+  { id: 'cars', name: 'Cars', hint: 'pick your ride', cats: ['body'] },
+  { id: 'perf', name: 'Performance', hint: 'speed & handling', cats: ['engine', 'tires', 'nitro'] },
   { id: 'looks', name: 'Looks', hint: 'paint & shape', cats: ['paint', 'wheels', 'spoiler', 'decal'] },
   { id: 'extras', name: 'Extras', hint: 'fun add-ons', cats: ['exhaust', 'underglow', 'topper'] },
 ];
@@ -48,8 +49,8 @@ export class Garage {
     this.audio = audio;
     this.onBack = onBack;
     this.onChange = onChange;
-    this.group = 'perf';
-    this.cat = 'engine';
+    this.group = 'cars';
+    this.cat = 'body';
     this.filter = 'all';
     this.selected = null;
     $('garage-back').addEventListener('click', () => this.close());
@@ -173,7 +174,7 @@ export class Garage {
     const btn = $('garage-action');
     const cat = part ? CATEGORIES.find((c) => c.id === part.cat) : null;
     $('detail-name').innerHTML = part ? `${swatch(part)} ${part.name}` : 'Pick a part';
-    const perf = GROUPS[0].cats.includes(part?.cat);
+    const perf = ['body', 'engine', 'tires', 'nitro'].includes(part?.cat);
     $('detail-stats').innerHTML = part ? statText(part) || `<span>${perf ? 'Standard part with no bonus' : 'Changes how your car looks'}</span>` : '';
     btn.disabled = false;
     btn.className = 'btn primary';

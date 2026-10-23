@@ -110,6 +110,10 @@ export class Sound {
       case 'shield':
         this.tone(300, 0.5, { vol: 0.12, type: 'sine', to: 900 });
         break;
+      case 'zap':
+        this.noise(0.35, { vol: 0.4, freq: 6000, to: 400 });
+        this.tone(1200, 0.3, { vol: 0.1, type: 'sawtooth', to: 80 });
+        break;
       case 'pop':
         this.tone(900, 0.15, { vol: 0.15, type: 'square', to: 200 });
         break;

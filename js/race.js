@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { Track, buildTrackMeshes } from './track.js';
 import { buildEnvironment } from './scenery.js';
-import { Car } from './car.js';
+import { Car, setGhost } from './car.js';
 import { Particles } from './effects.js';
 import { aiDrive, makeAI } from './ai.js';
 import { input } from './input.js';
@@ -182,7 +182,7 @@ export class Race {
       lastLapStart: 0,
       lapTimes: [],
       bestLap: Infinity,
-      effects: { boost: 0, shield: 0, magnet: 0, mud: 0, spin: 0 },
+      effects: { boost: 0, shield: 0, magnet: 0, mud: 0, spin: 0, ghost: 0, stun: 0 },
       ...props,
     };
     racer.progress = racer.lap * this.track.N + car.proj.f;
@@ -248,6 +248,7 @@ export class Race {
     r.effects.boost = st.b ? 1 : 0;
     r.effects.shield = st.sh ? 1 : 0;
     r.effects.mud = st.m ? 1 : 0;
+    r.effects.ghost = st.gh ? 1 : 0;
   }
 
   // Smoothly chase the latest reported position, extrapolated by its velocity.
@@ -286,7 +287,7 @@ export class Race {
         if (this.seenHits.has(key)) continue;
         this.seenHits.add(key);
         if (h.to === myPeer) {
-          this.hit(this.player, h.k === 'oil' ? 'oil' : 'mud', r);
+          this.hit(this.player, ['mud', 'oil', 'rocket', 'zap', 'shock'].includes(h.k) ? h.k : 'mud', r);
         } else {
           const target = this.remotes.get(h.to);
           if (target && h.k === 'mud') {
@@ -344,7 +345,7 @@ export class Race {
       st: {
         x: r2(c.pos.x), y: r2(c.pos.y), z: r2(c.pos.z), vx: r2(c.vel.x), vz: r2(c.vel.z),
         h: r2(c.heading), s: r2(c.speed), l: p.lap, g: r2(p.progress),
-        fin: p.finished, ft: r2(p.finishTime), b: e.boost > 0 ? 1 : 0, sh: e.shield > 0 ? 1 : 0, m: e.mud > 0 ? 1 : 0,
+        fin: p.finished, ft: r2(p.finishTime), b: e.boost > 0 ? 1 : 0, sh: e.shield > 0 ? 1 : 0, m: e.mud > 0 ? 1 : 0, gh: e.ghost > 0 ? 1 : 0,
       },
       hits: this.netHits,
       oil: this.netOil,
@@ -435,6 +436,9 @@ export class Race {
 
     this.mudGeo = new THREE.SphereGeometry(0.6, 14, 10);
     this.mudMat = new THREE.MeshStandardMaterial({ color: 0x5a3b1e, roughness: 1 });
+    this.rocketGeo = new THREE.ConeGeometry(0.35, 1.4, 12);
+    this.rocketGeo.rotateX(Math.PI / 2);
+    this.rocketMat = new THREE.MeshStandardMaterial({ color: 0xff3b3b, emissive: 0x551100, metalness: 0.4, roughness: 0.3 });
     this.oilGeo = new THREE.CircleGeometry(2.4, 28);
     this.oilGeo.rotateX(-Math.PI / 2);
     this.oilMat = new THREE.MeshStandardMaterial({ color: 0x0d0c12, roughness: 0.05, metalness: 0.7, transparent: true, opacity: 0.92 });
@@ -443,14 +447,21 @@ export class Race {
   // ---------- power-ups ----------
 
   rollItem(racer) {
-    const t = (racer.position - 1) / (RACERS - 1);
+    // t: 0 for the leader, 1 for last place. Catch-up items show up more at the back.
+    const t = (racer.position - 1) / Math.max(1, this.racers.length - 1);
     const table = [
-      ['boost', 20 + 30 * t],
-      ['mud', 30],
-      ['shield', 25 - 10 * t],
-      ['oil', 25 - 15 * t],
+      ['boost', 14 + 18 * t],
+      ['triple', 2 + 14 * t],
+      ['mud', 20],
+      ['rocket', 6 + 10 * t],
+      ['zap', 18 * t * t],
+      ['shield', 18 - 8 * t],
+      ['ghost', 8],
+      ['oil', 18 - 12 * t],
+      ['shock', 10],
+      ['warp', 1 + 10 * t],
     ];
-    if (racer.isPlayer) table.push(['magnet', 15]);
+    if (racer.isPlayer) table.push(['magnet', 12]);
     let r = Math.random() * table.reduce((s, e) => s + e[1], 0);
     for (const [id, w] of table) {
       r -= w;
@@ -459,22 +470,54 @@ export class Race {
     return 'boost';
   }
 
+  giveItem(racer, id) {
+    racer.item = id;
+    racer.itemUses = id === 'triple' ? 3 : 1;
+    if (racer.isPlayer) this.hud.setItem(id, racer.itemUses);
+  }
+
+  // Nearest rival ahead, or the closest one when you lead.
+  targetAhead(racer) {
+    const others = this.racers.filter((o) => o !== racer);
+    const ahead = others.filter((o) => o.progress > racer.progress).sort((a, b) => a.progress - b.progress)[0];
+    return ahead || others.sort((a, b) => Math.abs(a.progress - racer.progress) - Math.abs(b.progress - racer.progress))[0];
+  }
+
+  launch(racer, kind) {
+    const target = this.targetAhead(racer);
+    if (!target) return;
+    const car = racer.car;
+    const mesh = new THREE.Mesh(kind === 'rocket' ? this.rocketGeo : this.mudGeo, kind === 'rocket' ? this.rocketMat : this.mudMat);
+    mesh.position.copy(car.pos).add(tmp.set(0, 1.8, 0));
+    this.scene.add(mesh);
+    const vel = new THREE.Vector3(Math.sin(car.heading) * 40, 10, Math.cos(car.heading) * 40).add(car.vel);
+    this.projectiles.push({ mesh, vel, target, owner: racer, life: 5, kind });
+    if (racer.isPlayer || target.isPlayer) this.audio.play('throw');
+  }
+
   useItem(racer) {
     const it = racer.item;
     if (!it || !this.started) return;
-    racer.item = null;
+    racer.itemUses = (racer.itemUses || 1) - 1;
+    if (racer.itemUses <= 0) racer.item = null;
     const car = racer.car;
-    const fx = Math.sin(car.heading);
-    const fz = Math.cos(car.heading);
-    if (it === 'boost') {
-      racer.effects.boost = Math.max(racer.effects.boost, 2.2 * car.stats.nitro);
-      if (racer.isPlayer) this.audio.play('boost');
+    const e = racer.effects;
+    const me = racer.isPlayer;
+    if (it === 'boost' || it === 'triple') {
+      e.boost = Math.max(e.boost, (it === 'triple' ? 1.6 : 2.2) * car.stats.nitro);
+      if (me) this.audio.play('boost');
     } else if (it === 'shield') {
-      racer.effects.shield = 7;
-      if (racer.isPlayer) this.audio.play('shield');
+      e.shield = 7;
+      if (me) this.audio.play('shield');
     } else if (it === 'magnet') {
-      racer.effects.magnet = 9;
-      if (racer.isPlayer) this.audio.play('item');
+      e.magnet = 9;
+      if (me) this.audio.play('item');
+    } else if (it === 'ghost') {
+      e.ghost = 5;
+      if (me) {
+        this.audio.play('shield');
+        this.hud.message('👻 Ghost mode! Nothing can touch you.', 1.4);
+      }
     } else if (it === 'oil') {
       const f = car.proj.f - 4.5 / this.track.spacing;
       const lat = Math.max(-this.track.width / 2 + 2, Math.min(this.track.width / 2 - 2, car.lateral));
@@ -483,63 +526,107 @@ export class Race {
       mesh.position.copy(pos);
       this.scene.add(mesh);
       this.slicks.push({ id: `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`, mesh, pos, f: this.track.wrap(f), lat, owner: racer, grace: 1.2, life: 25 });
-      if (racer.isPlayer) this.audio.play('oil');
-    } else if (it === 'mud') {
-      const others = this.racers.filter((o) => o !== racer);
-      const ahead = others.filter((o) => o.progress > racer.progress).sort((a, b) => a.progress - b.progress)[0];
-      const target = ahead || others.sort((a, b) => Math.abs(a.progress - racer.progress) - Math.abs(b.progress - racer.progress))[0];
-      const mesh = new THREE.Mesh(this.mudGeo, this.mudMat);
-      mesh.position.copy(car.pos).add(tmp.set(0, 1.8, 0));
-      this.scene.add(mesh);
-      const vel = new THREE.Vector3(fx * 40, 10, fz * 40).add(car.vel);
-      this.projectiles.push({ mesh, vel, target, owner: racer, life: 5 });
-      if (racer.isPlayer || target.isPlayer) this.audio.play('throw');
+      if (me) this.audio.play('oil');
+    } else if (it === 'mud' || it === 'rocket') {
+      this.launch(racer, it);
+    } else if (it === 'zap') {
+      // Lightning strikes every rival ahead of you.
+      const victims = this.racers.filter((o) => o !== racer && !o.finished && o.progress > racer.progress);
+      for (const v of victims) this.hit(v, 'zap', racer);
+      this.audio.play('zap');
+      if (me) this.hud.message(victims.length ? `⚡ Zapped ${victims.length} racer${victims.length > 1 ? 's' : ''} ahead!` : '⚡ Nobody ahead to zap!', 1.5);
+    } else if (it === 'shock') {
+      // A blast that shoves nearby cars away.
+      let n = 0;
+      for (const o of this.racers) {
+        if (o === racer || o.car.pos.distanceTo(car.pos) > 16) continue;
+        this.hit(o, 'shock', racer);
+        n++;
+      }
+      this.particles.burst(tmp.copy(car.pos).add(UP), 30, { color: 0xffa040, size: 1.2, life: 0.5, additive: true, grow: 3 }, 18);
+      if (me || n) this.audio.play('mud');
+      if (me) this.hud.message(n ? `💥 Shockwave hit ${n} car${n > 1 ? 's' : ''}!` : '💥 Shockwave!', 1.3);
+    } else if (it === 'warp') {
+      // Jump 45 m up the road, keeping your speed.
+      this.particles.burst(tmp.copy(car.pos).add(UP), 20, { color: 0xb070ff, size: 0.8, life: 0.5, additive: true }, 8);
+      const speed = Math.max(car.speed, 20);
+      const lat = Math.max(-this.track.width / 2 + 2, Math.min(this.track.width / 2 - 2, car.lateral));
+      car.placeAt(car.proj.f + 45 / this.track.spacing, lat);
+      car.vel.set(Math.sin(car.heading) * speed, 0, Math.cos(car.heading) * speed);
+      this.particles.burst(tmp.copy(car.pos).add(UP), 20, { color: 0xb070ff, size: 0.8, life: 0.5, additive: true }, 8);
+      if (me) this.audio.play('boost');
     }
-    if (racer.isPlayer) this.hud.setItem(null);
+    if (me) this.hud.setItem(racer.item, racer.itemUses);
   }
 
   hit(racer, kind, from) {
     const e = racer.effects;
     const pos = racer.car.pos;
+    const byMe = from && from.isPlayer;
     if (racer.remote) {
       this.netHits.push({ id: Date.now().toString(36) + Math.floor(Math.random() * 1e4), to: racer.peer, k: kind });
       if (this.netHits.length > 8) this.netHits.shift();
       if (kind === 'mud') {
         this.particles.burst(tmp.copy(pos).add(UP), 24, { color: 0x5a3b1e, size: 0.8, life: 0.7, gravity: 14, opacity: 1 }, 10);
-        if (from && from.isPlayer) {
+        if (byMe) {
           this.hud.message(`🟤 Splat! You hit ${racer.name}!`, 1.6);
           this.audio.play('mud');
         }
+      } else if (kind === 'rocket' && byMe) {
+        this.hud.message(`🎯 Rocket hit ${racer.name}!`, 1.4);
       }
       return;
     }
+    if (e.ghost > 0) return;
     if (e.shield > 0) {
       e.shield = 0;
       this.particles.burst(tmp.copy(pos).add(UP), 18, { color: 0x66ccff, size: 0.6, life: 0.5, additive: true }, 9);
       if (racer.isPlayer) this.hud.message('🛡️ Shield blocked it!', 1.4);
-      if (racer.isPlayer || (from && from.isPlayer)) this.audio.play('pop');
+      if (racer.isPlayer || byMe) this.audio.play('pop');
       return;
     }
     if (kind === 'mud') {
-      e.mud = 4.5;
+      e.mud = 2;
+      e.boost = 0;
+      racer.car.vel.multiplyScalar(0.6);
       this.particles.burst(tmp.copy(pos).add(UP), 24, { color: 0x5a3b1e, size: 0.8, life: 0.7, gravity: 14, opacity: 1 }, 10);
       if (racer.isPlayer) {
         this.hud.mudSplash();
         this.hud.message(`🟤 Splat! ${from ? from.name : 'Someone'} got you!`, 1.8);
         this.audio.play('mud');
-      } else if (from && from.isPlayer) {
+      } else if (byMe) {
         this.hud.message(`🟤 Splat! You hit ${racer.name}!`, 1.6);
         this.audio.play('mud');
       }
-    } else if (kind === 'oil') {
-      e.spin = 1.0;
-      racer.car.vel.multiplyScalar(0.55);
-      if (racer.isPlayer) {
-        this.hud.message('🛢️ Oil slick!', 1.4);
-        this.audio.play('spin');
-      } else if (from && from.isPlayer) {
-        this.hud.message(`🛢️ ${racer.name} spun out!`, 1.4);
+    } else if (kind === 'oil' || kind === 'rocket') {
+      e.spin = kind === 'rocket' ? 0.8 : 1.0;
+      racer.car.vel.multiplyScalar(kind === 'rocket' ? 0.6 : 0.55);
+      if (kind === 'rocket') {
+        racer.car.vy = 6;
+        racer.car.airborne = true;
+        this.particles.burst(tmp.copy(pos).add(UP), 24, { color: 0xff7a2a, size: 1, life: 0.5, additive: true, grow: 2.5 }, 10);
       }
+      const label = kind === 'rocket' ? '🎯 Rocket' : '🛢️ Oil slick';
+      if (racer.isPlayer) {
+        this.hud.message(`${label}! You spun out!`, 1.4);
+        this.audio.play('spin');
+      } else if (byMe) {
+        this.hud.message(`${label}: ${racer.name} spun out!`, 1.4);
+      }
+    } else if (kind === 'zap') {
+      e.stun = 1.4;
+      if (racer.isPlayer) this.hud.zapFlash();
+      this.particles.burst(tmp.copy(pos).add(UP), 14, { color: 0xfff27a, size: 0.5, life: 0.4, additive: true }, 8);
+      if (racer.isPlayer) this.hud.message(`⚡ ${from ? from.name : 'Someone'} zapped you!`, 1.4);
+    } else if (kind === 'shock') {
+      e.stun = 0.6;
+      const src = from ? from.car.pos : pos;
+      const dx = pos.x - src.x;
+      const dz = pos.z - src.z;
+      const d = Math.hypot(dx, dz) || 1;
+      racer.car.vel.x += (dx / d) * 14;
+      racer.car.vel.z += (dz / d) * 14;
+      if (racer.isPlayer) this.hud.message(`💥 ${from ? from.name : 'Someone'}'s shockwave!`, 1.3);
     }
   }
 
@@ -595,6 +682,7 @@ export class Race {
             boost: e.boost > 0,
             mud: e.mud > 0,
             spin: e.spin > 0,
+            stun: e.stun > 0,
             speedScale: this.rubberBand(r),
           });
         }
@@ -626,7 +714,7 @@ export class Race {
     this.steer += Math.max(-rate * dt, Math.min(rate * dt, target - this.steer));
     d.steer = this.steer;
     Object.assign(p.car.input, d);
-    if (input.consume('Enter', 'NumpadEnter', 'KeyE', 'TouchItem')) this.useItem(p);
+    if (input.consume('Space', 'Enter', 'NumpadEnter', 'KeyE', 'TouchItem')) this.useItem(p);
     if (input.consume('KeyR', 'TouchReset') && this.started) {
       this.respawn(p);
       this.hud.message('Back on track!', 1);
@@ -660,6 +748,7 @@ export class Race {
         const ra = rs[i].remote;
         const rb = rs[j].remote;
         if (ra && rb) continue;
+        if (rs[i].effects.ghost > 0 || rs[j].effects.ghost > 0) continue;
         const d = Math.sqrt(d2);
         const nx = dx / d;
         const nz = dz / d;
@@ -805,15 +894,12 @@ export class Race {
           b.mesh.visible = false;
           this.particles.burst(b.pos, 14, { color: pick([0xff5ac8, 0x7878ff, 0x3ce6ff]), size: 0.5, life: 0.5, additive: true }, 8);
           if (!r.item && !(r.isPlayer && this.finished)) {
-            r.item = this.rollItem(r);
+            this.giveItem(r, this.rollItem(r));
             if (r.ai) {
               r.ai.itemTimer = 0.8 + Math.random() * 2.5;
               r.ai.itemHeld = 0;
             }
-            if (r.isPlayer) {
-              this.hud.setItem(r.item);
-              this.audio.play('item');
-            }
+            if (r.isPlayer) this.audio.play('item');
           }
           break;
         }
@@ -861,12 +947,15 @@ export class Race {
       dir.normalize().multiplyScalar(Math.max(75, p.target.car.vel.length() + 35));
       p.vel.lerp(dir, Math.min(1, dt * 5));
       p.mesh.position.addScaledVector(p.vel, dt);
-      p.mesh.rotation.x += dt * 8;
+      if (p.kind !== 'rocket') p.mesh.rotation.x += dt * 8;
+      if (p.kind === 'rocket') p.mesh.lookAt(tmp);
       if (Math.random() < 0.6) {
-        this.particles.spawn(p.mesh.position, tmp2.set(0, 0, 0), { color: 0x6b4423, size: 0.45, life: 0.35, grow: 0.5, opacity: 1 });
+        this.particles.spawn(p.mesh.position, tmp2.set(0, 0, 0), p.kind === 'rocket'
+          ? { color: 0xff9a40, size: 0.6, life: 0.3, grow: 0.4, additive: true, opacity: 1 }
+          : { color: 0x6b4423, size: 0.45, life: 0.35, grow: 0.5, opacity: 1 });
       }
       if (dist < 2.6 || p.life <= 0) {
-        if (dist < 2.6) this.hit(p.target, 'mud', p.owner);
+        if (dist < 2.6) this.hit(p.target, p.kind || 'mud', p.owner);
         this.scene.remove(p.mesh);
         this.projectiles.splice(i, 1);
       }
@@ -900,6 +989,11 @@ export class Race {
         m.shield.material.opacity = 0.22 + Math.sin(t * 8) * 0.06 + (r.effects.shield < 1.5 ? Math.sin(t * 30) * 0.1 : 0);
       }
       m.mud.visible = r.effects.mud > 0;
+      setGhost(m, r.effects.ghost > 0);
+      if (r.effects.stun > 0 && Math.random() < 0.5) {
+        this.particles.spawn(tmp.copy(car.pos).add(tmp2.set((Math.random() - 0.5) * 2, 0.8 + Math.random(), (Math.random() - 0.5) * 2)),
+          tmp2.set(0, 2, 0), { color: 0xfff27a, size: 0.35, life: 0.2, additive: true, opacity: 1 });
+      }
       if (m.glow) m.glow.material.opacity = 0.75 + Math.sin(t * 5 + r.position) * 0.15;
 
       // Particles: flames, drift smoke, wall sparks.

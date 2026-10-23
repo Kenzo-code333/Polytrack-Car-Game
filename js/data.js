@@ -181,13 +181,19 @@ export const POWERUPS = {
   shield: { id: 'shield', name: 'Shield', icon: '🛡️' },
   magnet: { id: 'magnet', name: 'Coin Magnet', icon: '🧲' },
   oil: { id: 'oil', name: 'Oil Slick', icon: '🛢️' },
+  triple: { id: 'triple', name: 'Triple Boost', icon: '🚀', uses: 3 },
+  rocket: { id: 'rocket', name: 'Homing Rocket', icon: '🎯' },
+  zap: { id: 'zap', name: 'Lightning', icon: '⚡' },
+  ghost: { id: 'ghost', name: 'Ghost', icon: '👻' },
+  shock: { id: 'shock', name: 'Shockwave', icon: '💥' },
+  warp: { id: 'warp', name: 'Warp Jump', icon: '🌀' },
 };
 
 export const PLACE_BONUS = [60, 35, 20, 12, 8, 5];
 
 export const CATEGORIES = [
   { id: 'paint', name: 'Paint', icon: '🎨' },
-  { id: 'body', name: 'Body', icon: '🚗' },
+  { id: 'body', name: 'Car', icon: '🚗' },
   { id: 'wheels', name: 'Wheels', icon: '🛞' },
   { id: 'tires', name: 'Tires', icon: '⚫' },
   { id: 'engine', name: 'Engine', icon: '⚙️' },
@@ -220,7 +226,14 @@ export const PARTS = [
   { id: 'body_sport', cat: 'body', name: 'Sport', price: 350, stats: { speed: 1.5, turn: 0.25 }, look: { shape: 'sport' } },
   { id: 'body_buggy', cat: 'body', name: 'Dune Buggy', price: 450, stats: { accel: 3, grip: 2, speed: -1 }, look: { shape: 'buggy' } },
   { id: 'body_muscle', cat: 'body', name: 'Muscle', price: 550, stats: { accel: 5, speed: 2 }, look: { shape: 'muscle' } },
+  { id: 'body_kart', cat: 'body', name: 'Go-Kart', price: 200, stats: { accel: 6, turn: 0.45, grip: 1, speed: -4 }, look: { shape: 'kart' } },
+  { id: 'body_retro', cat: 'body', name: 'Retro Bubble', price: 250, stats: { grip: 1, turn: 0.15 }, look: { shape: 'retro' } },
+  { id: 'body_pickup', cat: 'body', name: 'Pickup Truck', price: 500, stats: { accel: 2, grip: 1.5, speed: 1 }, look: { shape: 'pickup' } },
+  { id: 'body_rally', cat: 'body', name: 'Rally Hatch', price: 650, stats: { grip: 2.5, accel: 3, turn: 0.15 }, look: { shape: 'rally' } },
+  { id: 'body_monster', cat: 'body', name: 'Monster Truck', price: 900, stats: { grip: 3, accel: 4, speed: -1 }, look: { shape: 'monster' } },
+  { id: 'body_cyber', cat: 'body', name: 'Cyber Wedge', price: 1100, stats: { speed: 4, accel: 4 }, look: { shape: 'cyber' } },
   { id: 'body_hyper', cat: 'body', name: 'Hypercar', price: 1400, stats: { speed: 5, accel: 3, turn: 0.2 }, look: { shape: 'hyper' } },
+  { id: 'body_f1', cat: 'body', name: 'Formula Racer', price: 1800, stats: { speed: 6, accel: 5, turn: 0.35, grip: 2 }, look: { shape: 'f1' } },
 
   // Wheels
   { id: 'wheels_std', cat: 'wheels', name: 'Standard', price: 0, look: { rim: 0xc9ced6, style: 'disc' } },

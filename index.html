@@ -95,7 +95,7 @@
         <tr><td><kbd>W</kbd><kbd>↑</kbd></td><td>Accelerate</td></tr>
         <tr><td><kbd>S</kbd><kbd>↓</kbd></td><td>Brake / reverse</td></tr>
         <tr><td><kbd>A</kbd><kbd>D</kbd><kbd>←</kbd><kbd>→</kbd></td><td>Steer</td></tr>
-        <tr><td><kbd>Enter</kbd><kbd>E</kbd></td><td>Use power-up</td></tr>
+        <tr><td><kbd>Space</kbd><kbd>Enter</kbd></td><td>Use power-up</td></tr>
         <tr><td><kbd>R</kbd></td><td>Reset car onto the track</td></tr>
         <tr><td><kbd>C</kbd></td><td>Change camera</td></tr>
         <tr><td><kbd>Esc</kbd><kbd>P</kbd></td><td>Pause</td></tr>
@@ -105,8 +105,14 @@
       <h3>Power-ups (drive through ❓ boxes)</h3>
       <ul class="powerups">
         <li>🚀 <b>Speed Boost</b> — a burst of nitro.</li>
-        <li>🟤 <b>Mud Splash</b> — throws mud at the racer ahead. If you get hit, mud covers your screen!</li>
-        <li>🛡️ <b>Shield</b> — blocks one mud splash or oil slick.</li>
+        <li>🚀×3 <b>Triple Boost</b> — three short boosts, one per press.</li>
+        <li>🟤 <b>Mud Splash</b> — throws mud at the racer ahead: a big slowdown for 2 seconds and mud on their screen!</li>
+        <li>🎯 <b>Homing Rocket</b> — chases the racer ahead and flips them into a spin.</li>
+        <li>⚡ <b>Lightning</b> — stuns every racer ahead of you for a moment.</li>
+        <li>💥 <b>Shockwave</b> — blasts nearby cars away from you.</li>
+        <li>👻 <b>Ghost</b> — 5 seconds of driving through cars, immune to every attack.</li>
+        <li>🌀 <b>Warp Jump</b> — teleports you 45 m up the road.</li>
+        <li>🛡️ <b>Shield</b> — blocks one attack.</li>
         <li>🧲 <b>Coin Magnet</b> — pulls nearby coins to you.</li>
         <li>🛢️ <b>Oil Slick</b> — drop it behind you to spin out chasers.</li>
       </ul>
@@ -303,13 +309,14 @@
       </nav>
     </div>
     <canvas id="minimap" width="190" height="190"></canvas>
-    <div id="hud-item"><div class="slot"><span id="item-icon"></span></div><div id="item-name">No item</div><div class="hint">Enter</div></div>
+    <div id="hud-item"><div class="slot"><span id="item-icon"></span></div><div id="item-name">No item</div><div class="hint">Space</div></div>
     <div id="hud-speed"><span id="speed-val">0</span><small>km/h</small><div class="speed-track"><i id="speed-bar"></i></div></div>
     <div id="hud-msg"></div>
     <div id="hud-countdown"></div>
     <div id="hud-wrong">⚠ WRONG WAY</div>
     <div id="boost-lines"></div>
     <div id="mud-overlay"></div>
+    <div id="zap-flash"></div>
     <div id="touch">
       <div class="tleft">
         <button data-key="TouchLeft">◀</button>

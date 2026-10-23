@@ -24,6 +24,41 @@ const BODIES = {
     cabin: [[-1.35, 1.05], [0.5, 1.05], [0.0, 1.6], [-1.15, 1.62]],
     width: 2.0, cabinWidth: 1.6, wheelZ: 1.42, wheelR: 0.45, wheelX: 1.08, roof: 1.66, roofZ: -0.55, hood: [1.4, 1.08], rear: -2.26,
   },
+  kart: {
+    body: [[-1.2, 0.22], [1.3, 0.22], [1.42, 0.42], [0.6, 0.5], [-1.1, 0.56], [-1.25, 0.44]],
+    cabin: [[-0.75, 0.5], [0.05, 0.5], [-0.15, 0.98], [-0.62, 1.02]],
+    width: 1.25, cabinWidth: 0.75, wheelZ: 0.85, wheelR: 0.3, wheelX: 0.78, roof: 1.02, roofZ: -0.4, hood: [0.9, 0.5], rear: -1.22,
+  },
+  retro: {
+    body: [[-1.9, 0.4], [1.9, 0.4], [2.02, 0.72], [1.25, 0.98], [-1.6, 1.0], [-2.0, 0.75]],
+    cabin: [[-1.3, 0.95], [1.0, 0.95], [0.72, 1.42], [0.2, 1.7], [-0.62, 1.72], [-1.12, 1.42]],
+    width: 1.85, cabinWidth: 1.5, wheelZ: 1.25, wheelR: 0.42, wheelX: 1.0, roof: 1.72, roofZ: -0.2, hood: [1.3, 0.98], rear: -1.98,
+  },
+  pickup: {
+    body: [[-2.35, 0.52], [2.2, 0.52], [2.3, 1.02], [1.35, 1.12], [-2.35, 1.12], [-2.4, 0.82]],
+    cabin: [[-0.55, 1.08], [1.0, 1.08], [0.68, 1.8], [-0.48, 1.82]],
+    width: 2.0, cabinWidth: 1.7, wheelZ: 1.5, wheelR: 0.5, wheelX: 1.08, roof: 1.82, roofZ: 0.1, hood: [1.4, 1.12], rear: -2.38,
+  },
+  rally: {
+    body: [[-1.9, 0.42], [2.0, 0.42], [2.12, 0.8], [1.2, 0.96], [-1.85, 1.0], [-1.96, 0.8]],
+    cabin: [[-1.75, 0.95], [0.75, 0.95], [0.18, 1.6], [-1.68, 1.62]],
+    width: 1.9, cabinWidth: 1.55, wheelZ: 1.28, wheelR: 0.44, wheelX: 1.04, roof: 1.62, roofZ: -0.7, hood: [1.25, 0.96], rear: -1.95,
+  },
+  monster: {
+    body: [[-2.0, 1.12], [2.0, 1.12], [2.12, 1.52], [1.0, 1.62], [-2.0, 1.62], [-2.12, 1.38]],
+    cabin: [[-1.1, 1.58], [0.62, 1.58], [0.2, 2.18], [-1.0, 2.2]],
+    width: 2.0, cabinWidth: 1.6, wheelZ: 1.38, wheelR: 0.88, wheelX: 1.3, roof: 2.2, roofZ: -0.4, hood: [1.1, 1.62], rear: -2.08,
+  },
+  cyber: {
+    body: [[-2.3, 0.45], [2.3, 0.45], [2.38, 0.85], [0.1, 1.72], [-2.3, 1.15], [-2.36, 0.8]],
+    cabin: [[-0.55, 1.22], [1.1, 1.22], [0.18, 1.62], [-0.4, 1.62]],
+    width: 2.0, cabinWidth: 1.85, wheelZ: 1.5, wheelR: 0.46, wheelX: 1.08, roof: 1.62, roofZ: -0.1, hood: [1.2, 1.3], rear: -2.32,
+  },
+  f1: {
+    body: [[-2.3, 0.24], [2.5, 0.24], [2.62, 0.34], [0.8, 0.6], [-1.2, 0.76], [-2.3, 0.6]],
+    cabin: [[-0.95, 0.7], [0.15, 0.62], [-0.22, 0.96], [-0.82, 0.98]],
+    width: 1.05, cabinWidth: 0.68, wheelZ: 1.62, wheelR: 0.46, wheelX: 1.0, roof: 0.98, roofZ: -0.5, hood: [1.5, 0.5], rear: -2.3,
+  },
   hyper: {
     body: [[-2.2, 0.26], [2.3, 0.26], [2.42, 0.44], [0.6, 0.8], [-1.6, 0.88], [-2.25, 0.62]],
     cabin: [[-0.85, 0.76], [0.95, 0.7], [0.05, 1.16], [-0.7, 1.2]],
@@ -117,7 +152,7 @@ export function buildCarModel(equipped, opts = {}) {
   cabin.castShadow = true;
   body.add(cabin);
   // Painted roof slab over the glass.
-  const roofPts = shape.cabin.slice(2);
+  const roofPts = [...shape.cabin].sort((a, b) => b[1] - a[1]).slice(0, 2);
   const roofY = Math.max(roofPts[0][1], roofPts[1][1]) + 0.1;
   const roof = new THREE.Mesh(new THREE.BoxGeometry(shape.cabinWidth - 0.05, 0.08, Math.abs(roofPts[0][0] - roofPts[1][0]) + 0.25), paintMat);
   roof.position.set(0, roofY, (roofPts[0][0] + roofPts[1][0]) / 2);
@@ -366,6 +401,26 @@ export function buildCarModel(equipped, opts = {}) {
   return { root, body, wheels, flames, glow, shield, mud, rainbowMats, shape };
 }
 
+// See-through while the Ghost power-up is active.
+export function setGhost(model, on) {
+  if (model.ghost === on) return;
+  model.ghost = on;
+  if (!model.solid) {
+    model.solid = [];
+    model.root.traverse((o) => {
+      for (const m of o.material ? [].concat(o.material) : []) {
+        if (!m.transparent && !model.solid.includes(m)) model.solid.push(m);
+      }
+    });
+  }
+  for (const m of model.solid) {
+    m.transparent = on;
+    m.opacity = on ? 0.35 : 1;
+    m.depthWrite = !on;
+    m.needsUpdate = true;
+  }
+}
+
 export function animateRainbow(model, time) {
   for (const r of model.rainbowMats) r.mat[r.key].setHSL((time * 0.15 + r.offset) % 1, 0.85, 0.55);
 }
@@ -433,7 +488,7 @@ export class Car {
     if (this.airborne) return this.stepAir(dt);
 
     const boostMul = env.boost ? 1.32 + 0.12 * (st.nitro - 1) : 1;
-    const maxV = st.speed * boostMul * (env.mud ? 0.72 : 1) * (env.speedScale || 1);
+    const maxV = st.speed * boostMul * (env.mud ? 0.55 : 1) * (env.stun ? 0.6 : 1) * (env.speedScale || 1);
     if (inp.throttle > 0 && !env.spin) {
       if (vf < maxV) {
         const a = st.accel * (env.boost ? 1.8 : 1) * inp.throttle;
@@ -460,7 +515,7 @@ export class Car {
     const speedFactor = Math.max(-1, Math.min(1, vf / 7));
     const highSpeedDamp = 1 - 0.45 * Math.min(1, Math.max(0, vf) / st.speed);
     let turn = st.turn * inp.steer * speedFactor * highSpeedDamp;
-    if (env.mud) turn += Math.sin(performance.now() * 0.006) * 0.25;
+    if (env.mud) turn += Math.sin(performance.now() * 0.006) * 0.06;
     if (env.spin) turn = 10;
     // Ease the turn rate in and out so the car sweeps through corners instead of snapping.
     this.yawRate += (turn - this.yawRate) * (1 - Math.exp(-dt * (env.spin ? 30 : 7)));
