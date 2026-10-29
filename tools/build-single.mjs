@@ -25,6 +25,8 @@ const swap = (pattern, replacement) => {
 };
 swap(/<link rel="stylesheet" href="css\/style.css" \/>/, `<style>\n${css}</style>`);
 swap(/\s*<script type="importmap">[\s\S]*?<\/script>/, '');
+const peer = readFileSync(root + 'vendor/peerjs.min.js', 'utf8').replace(/<\/script/gi, '<\\/script');
+swap(/<script src="vendor\/peerjs.min.js"><\/script>/, `<script>\n${peer}</script>`);
 swap(/<script type="module" src="js\/main.js"><\/script>/, `<script>\n${js}</script>`);
 
 writeFileSync(root + 'polyrush.html', html);

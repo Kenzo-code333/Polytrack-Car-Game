@@ -86,7 +86,22 @@ python3 -m http.server 8000
 
 ## Online play
 
-Online races use the claude.ai viewer's live "room" connection (`js/online.js`), so there's no server to run.
-Every player shares their car state as presence, and each race code is its own room. Online play works only
-inside the published claude.ai link. Friends need a claude.ai account and access to the link (use its Share menu).
-The standalone `polyrush.html` and local copies are single player.
+There are two ways players connect (`js/online.js`); the lobby works the same either way:
+
+- **Public website (no accounts needed).** Players' browsers connect directly to each other with
+  [PeerJS](https://peerjs.com/), using its free public matchmaking server. The race host's browser passes
+  everyone's car positions on. Invite links look like `https://<site>/#race-ABCD`.
+- **claude.ai link.** Inside the claude.ai viewer the game uses its live "room" connection instead. Everyone
+  there needs a claude.ai account and access to the link.
+
+Players on the website and on the claude.ai link can't race each other, since they connect in different ways.
+
+### Publishing the website
+
+`.github/workflows/pages.yml` publishes the game to GitHub Pages on every push to `main`. One-time setup:
+
+1. Make the repository public (Settings → General → Danger Zone → Change visibility). GitHub Pages is free
+   only for public repositories.
+2. Settings → Pages → Build and deployment → Source: **GitHub Actions**.
+3. Merge to `main` (or run the workflow from the Actions tab). The site appears at
+   `https://kenzo-code333.github.io/Polytrack-Car-Game/`.

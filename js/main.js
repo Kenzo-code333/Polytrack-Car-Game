@@ -300,10 +300,8 @@ function quitRace() {
   refreshCoins();
   if (wasOnline) {
     online.set({ raceId: null, st: null, hits: [], oil: [], used: [] });
-    if (online.lobby) {
-      openOnline();
-      return;
-    }
+    openOnline();
+    return;
   }
   if (fromEditor) {
     showScreen('editor');
@@ -475,7 +473,10 @@ function tallyResults() {
   }
 }
 
-const INVITE_LINK = typeof window.POLYRUSH_LINK === 'string' ? window.POLYRUSH_LINK : '';
+// claude.ai link when running there; otherwise this website's own address.
+const INVITE_LINK = typeof window.POLYRUSH_LINK === 'string'
+  ? window.POLYRUSH_LINK
+  : /^https?:$/.test(location.protocol) && !/^(localhost|127\.)/.test(location.hostname) ? location.origin + location.pathname : '';
 function inviteText(code) {
   return INVITE_LINK
     ? `Race me in PolyRush! ${INVITE_LINK}#race-${code.toLowerCase()} (code ${code})`
@@ -559,14 +560,23 @@ function saveName() {
 $('online-create').addEventListener('click', async () => {
   audio.init();
   saveName();
-  const code = randomCode();
   hostLobby = null;
   hostLobby = lobbyFromInputs({ startId: 0, grid: [], scores: {} });
-  try {
-    await online.join(code, { ...myPresence(true), lobby: hostLobby });
-  } catch {
-    toast('Could not create the race. Check your connection and try again.');
+  $('online-create').disabled = true;
+  $('online-create').textContent = 'Creating…';
+  // A code can already be in use by another race; try a few.
+  let ok = false;
+  for (let tries = 0; tries < 4 && !ok; tries++) {
+    try {
+      await online.join(randomCode(), { ...myPresence(true), lobby: hostLobby }, { create: true });
+      ok = true;
+    } catch (e) {
+      if (!e || e.type !== 'unavailable-id') break;
+    }
   }
+  $('online-create').disabled = false;
+  $('online-create').textContent = 'Create a race';
+  if (!ok) toast('Could not create the race. Check your internet connection and try again.');
   lastStartSeen = 0;
   renderOnline();
 });
@@ -580,11 +590,17 @@ $('online-join').addEventListener('click', async () => {
     return;
   }
   hostLobby = null;
+  $('online-join').disabled = true;
+  $('online-join').textContent = 'Joining…';
   try {
     await online.join(code, myPresence(false));
-  } catch {
-    toast('Could not join that race. Check the code and try again.');
+  } catch (e) {
+    toast(e && e.type === 'peer-unavailable'
+      ? `No race found with code ${code}. Check the code, and that the host is still in the lobby.`
+      : 'Could not join that race. Check your internet connection and try again.');
   }
+  $('online-join').disabled = false;
+  $('online-join').textContent = 'Join';
   lastStartSeen = -1;
   renderOnline();
 });
@@ -647,6 +663,11 @@ function watchHost() {
 }
 
 online.onChange(() => {
+  if (!online.lobby && online.lostReason && online.mode === 'peer') {
+    toast(online.lostReason);
+    online.lostReason = '';
+    if (race && race.net) quitRace();
+  }
   watchHost();
   tallyResults();
   if (online.isHost() && !hostLobby) {
