@@ -783,10 +783,15 @@ function frame(now) {
 refreshCoins();
 showScreen('menu');
 const invited = /^#race-([a-z0-9]{4,6})$/i.exec(location.hash || '');
+// Opening an invite link joins that race straight away, like tapping into a game.
 if (invited) {
-  $('online-code').value = cleanCode(invited[1]);
+  const code = cleanCode(invited[1]);
+  $('online-code').value = code;
   openOnline().then(() => {
-    if (online.available) toast(`You're invited to race ${cleanCode(invited[1])}! Type your name and press Join.`);
+    if (!online.available) return;
+    if (!cleanName($('online-name').value)) $('online-name').value = `Racer ${Math.floor(10 + Math.random() * 90)}`;
+    toast(`Joining race ${code}…`);
+    $('online-join').click();
   });
 }
 showroom.setView('menu');
