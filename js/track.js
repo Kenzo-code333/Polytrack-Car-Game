@@ -1,6 +1,6 @@
 // Track spline, spatial queries and track meshes (road, curbs, walls, start gantry, pillars).
 import * as THREE from 'three';
-import { asphaltTexture, curbTexture, wallTexture, checkerTexture } from './textures.js';
+import { asphaltTexture, curbTexture, wallTexture, checkerTexture, rampTexture } from './textures.js';
 
 export const WALL_GAP = 1.1; // distance from road edge to the barrier
 
@@ -30,6 +30,54 @@ export class Track {
       const ang = Math.atan2(a.x * b.z - a.z * b.x, a.x * b.x + a.z * b.z);
       this.curv.push(ang);
     }
+    this.addFeatures(map.features || {});
+  }
+
+  // Jump ramps and bump strips, carved into the road height on the straightest stretches.
+  addFeatures(feat) {
+    const N = this.N;
+    const sp = this.spacing;
+    // How bendy the road is from `back` metres before i to `ahead` metres after it.
+    const bendiness = (i, back, ahead) => {
+      let s = 0;
+      for (let k = -Math.round(back / sp); k <= Math.round(ahead / sp); k++) s += Math.abs(this.curv[this.wrap(i + k)]);
+      return s;
+    };
+    const spot = (frac, back, ahead) => {
+      let best = Math.floor(frac * N);
+      let bestScore = Infinity;
+      const win = feat.exact ? 0 : 0.05;
+      for (let i = Math.floor((frac - win) * N); i <= Math.floor((frac + win) * N); i++) {
+        const score = bendiness(i, back, ahead);
+        if (score < bestScore) {
+          bestScore = score;
+          best = this.wrap(i);
+        }
+      }
+      return best;
+    };
+    const lift = new Float32Array(N);
+    this.ramps = [];
+    this.bumps = [];
+    const rampLen = Math.round(16 / sp);
+    for (const frac of feat.ramps || []) {
+      const i0 = spot(frac, 10, 75);
+      for (let k = 0; k <= rampLen; k++) lift[this.wrap(i0 + k)] = Math.max(lift[this.wrap(i0 + k)], 2.2 * (k / rampLen) ** 1.5);
+      lift[this.wrap(i0 + rampLen + 1)] = Math.max(lift[this.wrap(i0 + rampLen + 1)], 0.6);
+      this.ramps.push({ start: i0, end: this.wrap(i0 + rampLen) });
+    }
+    const bumpLen = Math.round(36 / sp);
+    for (const frac of feat.bumps || []) {
+      const i0 = spot(frac, 5, 40);
+      for (let k = 0; k <= bumpLen; k++) {
+        const h = 0.15 * (1 - Math.cos((2 * Math.PI * k * sp) / 9));
+        lift[this.wrap(i0 + k)] = Math.max(lift[this.wrap(i0 + k)], h);
+      }
+      this.bumps.push({ start: i0, end: this.wrap(i0 + bumpLen) });
+    }
+    for (let i = 0; i < N; i++) this.p[i].y += lift[i];
+    // Tangents now include the new slopes; the horizontal frame is unchanged.
+    for (let i = 0; i < N; i++) this.t[i].copy(this.p[(i + 1) % N]).sub(this.p[(i - 1 + N) % N]).normalize();
   }
 
   wrap(i) {
@@ -112,15 +160,15 @@ export class Track {
 }
 
 // A strip running along the whole track between two (lateral, height) edges.
-function ribbon(track, a, b, vScale, extraUp = null) {
-  const N = track.N;
+function ribbon(track, a, b, vScale, extraUp = null, from = 0, count = track.N) {
+  const N = count;
   const pos = new Float32Array((N + 1) * 2 * 3);
   const uv = new Float32Array((N + 1) * 2 * 2);
   const idx = [];
   let dist = 0;
   for (let k = 0; k <= N; k++) {
-    const i = k % N;
-    if (k > 0) dist += track.p[i].distanceTo(track.p[(k - 1) % N]);
+    const i = (from + k) % track.N;
+    if (k > 0) dist += track.p[i].distanceTo(track.p[(from + k - 1) % track.N]);
     const p = track.p[i];
     const r = track.r[i];
     const up = extraUp ? extraUp(i) : 0;
@@ -155,6 +203,15 @@ export function buildTrackMeshes(track, season, heightAt) {
   );
   road.receiveShadow = true;
   group.add(road);
+
+  // Yellow chevrons on every ramp.
+  const rampMat = new THREE.MeshStandardMaterial({ map: rampTexture(), roughness: 0.6, polygonOffset: true, polygonOffsetFactor: -2 });
+  for (const r of track.ramps) {
+    const count = track.wrap(r.end - r.start) + 1;
+    const m = new THREE.Mesh(ribbon(track, { lat: -hw + 0.6, dy: 0.06 }, { lat: hw - 0.6, dy: 0.06 }, hw * 2 - 1.2, null, r.start, count), rampMat);
+    m.receiveShadow = true;
+    group.add(m);
+  }
 
   const curbMat = new THREE.MeshStandardMaterial({ map: curbTexture(), roughness: 0.6 });
   for (const s of [-1, 1]) {

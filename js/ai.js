@@ -81,7 +81,6 @@ export function aiDrive(racer, race, dt) {
   car.input.throttle = throttle;
   car.input.brake = brake;
   car.input.steer = steer;
-  car.input.drift = maxC > 0.7 && sp > 22 && ai.skill > 0.9;
 
   // Power-ups.
   if (racer.item && !racer.isPlayer) {
@@ -92,10 +91,17 @@ export function aiDrive(racer, race, dt) {
       const item = racer.item;
       const forced = ai.itemHeld > 8;
       let use = forced;
-      if (item === 'boost') use = use || maxC < 0.25;
+      const gap = (o) => (o.progress - racer.progress) * tr.spacing;
+      const rivalAhead = (m) => race.racers.some((o) => o !== racer && gap(o) > 0 && gap(o) < m);
+      const rivalBehind = (m) => race.racers.some((o) => o !== racer && gap(o) < 0 && gap(o) > -m);
+      const near = (m) => race.racers.some((o) => o !== racer && o.car.pos.distanceTo(car.pos) < m);
+      if (item === 'boost' || item === 'triple' || item === 'warp') use = use || maxC < 0.25;
       else if (item === 'shield') use = true;
-      else if (item === 'mud') use = use || race.racers.some((o) => o !== racer && o.progress > racer.progress && o.progress - racer.progress < 260 / tr.spacing);
-      else if (item === 'oil') use = use || race.racers.some((o) => o !== racer && o.progress < racer.progress && racer.progress - o.progress < 50 / tr.spacing);
+      else if (item === 'mud' || item === 'rocket') use = use || rivalAhead(260);
+      else if (item === 'oil') use = use || rivalBehind(50);
+      else if (item === 'zap') use = use || racer.position > 1;
+      else if (item === 'ghost') use = use || rivalBehind(25) || near(8);
+      else if (item === 'shock') use = use || near(12);
       if (use) {
         race.useItem(racer);
         ai.itemHeld = 0;

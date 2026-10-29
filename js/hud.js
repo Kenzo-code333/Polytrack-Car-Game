@@ -2,6 +2,7 @@
 import { POWERUPS } from './data.js';
 
 const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 export function formatTime(t) {
   if (!isFinite(t) || t <= 0) return '--:--.--';
@@ -73,9 +74,9 @@ export class HUD {
     this.lastBoard = '';
   }
 
-  setItem(id) {
+  setItem(id, uses = 1) {
     const p = id ? POWERUPS[id] : null;
-    this.itemIcon.textContent = p ? p.icon : '';
+    this.itemIcon.textContent = p ? p.icon + (uses > 1 ? `×${uses}` : '') : '';
     this.itemName.textContent = p ? p.name : 'No item';
     this.itemBox.classList.toggle('has-item', !!p);
     if (p) {
@@ -104,6 +105,13 @@ export class HUD {
     this.message(place === 1 ? '🏆 YOU WIN! 🏆' : `🏁 Finished ${ordinal(place)}!`, 3.2, 'big');
   }
 
+  zapFlash() {
+    const el = document.getElementById('zap-flash');
+    el.classList.remove('active');
+    void el.offsetWidth;
+    el.classList.add('active');
+  }
+
   mudSplash() {
     this.mud.innerHTML = '';
     const n = 7 + Math.floor(Math.random() * 4);
@@ -121,7 +129,7 @@ export class HUD {
       for (let d = 0; d < 2; d++) {
         const drip = document.createElement('i');
         drip.style.left = 20 + Math.random() * 60 + '%';
-        drip.style.animationDelay = 0.4 + Math.random() * 1.2 + 's';
+        drip.style.animationDelay = 0.2 + Math.random() * 0.5 + 's';
         b.appendChild(drip);
       }
       this.mud.appendChild(b);
@@ -150,10 +158,12 @@ export class HUD {
     if (p.effects.shield > 0) fx.push(`🛡️ ${p.effects.shield.toFixed(1)}s`);
     if (p.effects.magnet > 0) fx.push(`🧲 ${p.effects.magnet.toFixed(1)}s`);
     if (p.effects.mud > 0) fx.push('🟤 Muddy!');
+    if (p.effects.ghost > 0) fx.push(`👻 ${p.effects.ghost.toFixed(1)}s`);
+    if (p.effects.stun > 0) fx.push('⚡ Stunned!');
     const fxHtml = fx.map((t) => `<span>${t}</span>`).join('');
     if (fxHtml !== this.effects.innerHTML) this.effects.innerHTML = fxHtml;
 
-    const board = race.standings.map((r) => `<li class="${r.isPlayer ? 'me' : ''}"><b>${r.position}</b>${r.name}${r.finished ? ' 🏁' : ''}</li>`).join('');
+    const board = race.standings.map((r) => `<li class="${r.isPlayer ? 'me' : ''}"><b>${r.position}</b>${esc(r.name)}${r.finished ? ' 🏁' : ''}</li>`).join('');
     if (board !== this.lastBoard) {
       this.board.innerHTML = board;
       this.lastBoard = board;

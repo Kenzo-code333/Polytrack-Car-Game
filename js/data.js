@@ -68,29 +68,33 @@ function figureEight() {
 export const MAPS = [
   {
     id: 'valley', name: 'Green Valley', stars: 1, laps: 3, width: 17,
-    desc: 'A friendly flowing loop through rolling hills.',
+    desc: 'Rolling hills, two big jumps and a bumpy stretch.',
     terrainFollow: true, hills: 10, trees: 520,
-    points: [[0, 0, -120], [80, 0, -112], [132, 0, -52], [122, 0, 30], [72, 0, 92], [0, 0, 112],
-      [-72, 0, 100], [-122, 0, 40], [-112, 0, -50], [-70, 0, -110]],
+    features: { ramps: [0.3, 0.7], bumps: [0.08, 0.52] },
+    points: [[0, 0, -120], [80, 4, -112], [132, 9, -52], [122, 6, 30], [72, 2, 92], [0, 0, 112],
+      [-72, 4, 100], [-122, 9, 40], [-112, 5, -50], [-70, 1, -110]],
   },
   {
     id: 'forest', name: 'Twisty Forest', stars: 2, laps: 3, width: 16,
     desc: 'Tight S-bends through a dense forest. Brake early!',
     terrainFollow: true, hills: 14, trees: 1100,
-    points: [[0, 0, -140], [62, 0, -132], [96, 0, -84], [52, 0, -40], [92, 0, 2], [142, 0, 32],
-      [124, 0, 92], [64, 0, 114], [22, 0, 74], [-30, 0, 114], [-92, 0, 104], [-124, 0, 42],
-      [-82, 0, 0], [-124, 0, -52], [-92, 0, -122]],
+    features: { ramps: [0.42], bumps: [0.15, 0.62, 0.85] },
+    points: [[0, 0, -140], [62, 2, -132], [96, 5, -84], [52, 3, -40], [92, 6, 2], [142, 9, 32],
+      [124, 7, 92], [64, 3, 114], [22, 1, 74], [-30, 4, 114], [-92, 8, 104], [-124, 6, 42],
+      [-82, 2, 0], [-124, 4, -52], [-92, 1, -122]],
   },
   {
     id: 'bridge', name: 'Figure-8 Bridge', stars: 2, laps: 3, width: 16,
     desc: 'Cross over yourself on a big bridge. Watch the crossing!',
     terrainFollow: false, hills: 8, trees: 450,
+    features: { ramps: [0.12, 0.62], bumps: [0.4, 0.9] },
     points: figureEight(),
   },
   {
     id: 'mountain', name: 'Mountain Pass', stars: 3, laps: 3, width: 15,
     desc: 'Climb and dive through steep mountain roads.',
     terrainFollow: true, hills: 26, trees: 650,
+    features: { ramps: [0.25], bumps: [0.55, 0.8] },
     points: [[0, 0, -150], [90, 5, -142], [152, 13, -82], [164, 21, 0], [124, 26, 72], [44, 19, 124],
       [-40, 12, 142], [-112, 7, 100], [-152, 3, 20], [-122, 0, -62], [-72, 0, -134]],
   },
@@ -99,10 +103,71 @@ export const MAPS = [
     desc: 'A long high-speed track along the beach.',
     terrainFollow: true, hills: 12, trees: 480, water: -1.2,
     base: (x) => (x > 135 ? -(x - 135) * 0.11 : 0),
-    points: [[0, 0, -185], [102, 0, -172], [172, 0, -102], [184, 0, 0], [152, 0, 104], [62, 0, 162],
-      [-40, 0, 152], [-102, 0, 92], [-92, 0, 22], [-152, 0, -42], [-134, 0, -132], [-62, 0, -184]],
+    features: { ramps: [0.2, 0.55, 0.8], bumps: [0.36] },
+    points: [[0, 0, -185], [102, 2, -172], [172, 4, -102], [184, 2, 0], [152, 0, 104], [62, 3, 162],
+      [-40, 6, 152], [-102, 4, 92], [-92, 1, 22], [-152, 3, -42], [-134, 5, -132], [-62, 2, -184]],
+  },
+  {
+    id: 'oval', name: 'Sunset Speedway', stars: 1, laps: 3, width: 20,
+    desc: 'A huge, wide oval built for flat-out speed and long jumps.',
+    terrainFollow: true, hills: 8, trees: 420,
+    features: { ramps: [0.24, 0.74], bumps: [0.5] },
+    points: ellipse(12, 200, 115, (a) => 3 + 3 * Math.sin(a * 2)),
+  },
+  {
+    id: 'lakeside', name: 'Lakeside Loop', stars: 2, laps: 3, width: 17,
+    desc: 'A wavy loop around a sparkling lake, with a jump over the shore.',
+    terrainFollow: true, hills: 12, trees: 600, water: -1.2,
+    base: (x, z) => {
+      const d = Math.hypot(x, z);
+      return d < 75 ? -(75 - d) * 0.14 : 0;
+    },
+    features: { ramps: [0.35], bumps: [0.12, 0.7] },
+    points: ellipse(14, 125, 125, (a) => 2 + 4 * Math.sin(a * 3 + 1), (a) => 1 + 0.18 * Math.sin(a * 3)),
+  },
+  {
+    id: 'serpent', name: 'Serpent Ridge', stars: 3, laps: 3, width: 15,
+    desc: 'A long, snaking ridge road full of climbs, drops and switchbacks.',
+    terrainFollow: true, hills: 20, trees: 700,
+    features: { ramps: [0.18, 0.66], bumps: [0.4, 0.88] },
+    points: [[-160, 0, -120], [-80, 6, -150], [0, 12, -112], [62, 8, -150], [150, 14, -122], [172, 18, -32],
+      [112, 12, 10], [162, 6, 80], [100, 2, 150], [20, 8, 112], [-40, 14, 150], [-120, 10, 122],
+      [-92, 4, 42], [-172, 2, 0]],
   },
 ];
+
+// Closed loop of control points on an ellipse; `height(a)` and `wobble(a)` shape it.
+function ellipse(n, rx, rz, height = () => 0, wobble = () => 1) {
+  const pts = [];
+  for (let k = 0; k < n; k++) {
+    const a = (k / n) * Math.PI * 2;
+    const w = wobble(a);
+    pts.push([Math.round(Math.sin(a) * rx * w), +height(a).toFixed(1), Math.round(-Math.cos(a) * rz * w)]);
+  }
+  return pts;
+}
+
+// One soundtrack per track. Notes are MIDI numbers; scales are semitone steps.
+export const SCALES = {
+  major: [0, 2, 4, 5, 7, 9, 11],
+  minor: [0, 2, 3, 5, 7, 8, 10],
+  dorian: [0, 2, 3, 5, 7, 9, 10],
+  mixolydian: [0, 2, 4, 5, 7, 9, 10],
+  lydian: [0, 2, 4, 6, 7, 9, 11],
+  phrygian: [0, 1, 3, 5, 7, 8, 10],
+};
+
+export const TUNES = {
+  menu: { name: 'Garage Groove', bpm: 96, root: 57, scale: 'minor', prog: [0, 5, 3, 4], style: 'chill', lead: 'triangle' },
+  valley: { name: 'Green Valley Run', bpm: 122, root: 60, scale: 'major', prog: [0, 4, 5, 3], style: 'pop', lead: 'square' },
+  forest: { name: 'Woodland Rush', bpm: 114, root: 62, scale: 'dorian', prog: [0, 3, 6, 4], style: 'funk', lead: 'triangle' },
+  bridge: { name: 'Over the Bridge', bpm: 128, root: 55, scale: 'mixolydian', prog: [0, 6, 3, 4], style: 'pop', lead: 'sawtooth' },
+  mountain: { name: 'Summit Fever', bpm: 140, root: 52, scale: 'minor', prog: [0, 5, 6, 4], style: 'rock', lead: 'sawtooth' },
+  coast: { name: 'Beach Cruise', bpm: 118, root: 65, scale: 'major', prog: [0, 3, 4, 4], style: 'tropical', lead: 'triangle' },
+  oval: { name: 'Sunset Drive', bpm: 144, root: 57, scale: 'minor', prog: [0, 5, 2, 6], style: 'synth', lead: 'sawtooth' },
+  lakeside: { name: 'Lake Breeze', bpm: 104, root: 64, scale: 'lydian', prog: [0, 1, 4, 3], style: 'chill', lead: 'triangle' },
+  serpent: { name: 'Serpent Chase', bpm: 136, root: 59, scale: 'phrygian', prog: [0, 1, 6, 5], style: 'rock', lead: 'square' },
+};
 
 export const DIFFICULTIES = {
   easy: { id: 'easy', name: 'Easy', speed: 0.84, skill: 0.75, rubber: 0.05 },
@@ -116,13 +181,19 @@ export const POWERUPS = {
   shield: { id: 'shield', name: 'Shield', icon: '🛡️' },
   magnet: { id: 'magnet', name: 'Coin Magnet', icon: '🧲' },
   oil: { id: 'oil', name: 'Oil Slick', icon: '🛢️' },
+  triple: { id: 'triple', name: 'Triple Boost', icon: '🚀', uses: 3 },
+  rocket: { id: 'rocket', name: 'Homing Rocket', icon: '🎯' },
+  zap: { id: 'zap', name: 'Lightning', icon: '⚡' },
+  ghost: { id: 'ghost', name: 'Ghost', icon: '👻' },
+  shock: { id: 'shock', name: 'Shockwave', icon: '💥' },
+  warp: { id: 'warp', name: 'Warp Jump', icon: '🌀' },
 };
 
 export const PLACE_BONUS = [60, 35, 20, 12, 8, 5];
 
 export const CATEGORIES = [
   { id: 'paint', name: 'Paint', icon: '🎨' },
-  { id: 'body', name: 'Body', icon: '🚗' },
+  { id: 'body', name: 'Car', icon: '🚗' },
   { id: 'wheels', name: 'Wheels', icon: '🛞' },
   { id: 'tires', name: 'Tires', icon: '⚫' },
   { id: 'engine', name: 'Engine', icon: '⚙️' },
@@ -155,7 +226,14 @@ export const PARTS = [
   { id: 'body_sport', cat: 'body', name: 'Sport', price: 350, stats: { speed: 1.5, turn: 0.25 }, look: { shape: 'sport' } },
   { id: 'body_buggy', cat: 'body', name: 'Dune Buggy', price: 450, stats: { accel: 3, grip: 2, speed: -1 }, look: { shape: 'buggy' } },
   { id: 'body_muscle', cat: 'body', name: 'Muscle', price: 550, stats: { accel: 5, speed: 2 }, look: { shape: 'muscle' } },
+  { id: 'body_kart', cat: 'body', name: 'Go-Kart', price: 200, stats: { accel: 6, turn: 0.45, grip: 1, speed: -4 }, look: { shape: 'kart' } },
+  { id: 'body_retro', cat: 'body', name: 'Retro Bubble', price: 250, stats: { grip: 1, turn: 0.15 }, look: { shape: 'retro' } },
+  { id: 'body_pickup', cat: 'body', name: 'Pickup Truck', price: 500, stats: { accel: 2, grip: 1.5, speed: 1 }, look: { shape: 'pickup' } },
+  { id: 'body_rally', cat: 'body', name: 'Rally Hatch', price: 650, stats: { grip: 2.5, accel: 3, turn: 0.15 }, look: { shape: 'rally' } },
+  { id: 'body_monster', cat: 'body', name: 'Monster Truck', price: 900, stats: { grip: 3, accel: 4, speed: -1 }, look: { shape: 'monster' } },
+  { id: 'body_cyber', cat: 'body', name: 'Cyber Wedge', price: 1100, stats: { speed: 4, accel: 4 }, look: { shape: 'cyber' } },
   { id: 'body_hyper', cat: 'body', name: 'Hypercar', price: 1400, stats: { speed: 5, accel: 3, turn: 0.2 }, look: { shape: 'hyper' } },
+  { id: 'body_f1', cat: 'body', name: 'Formula Racer', price: 1800, stats: { speed: 6, accel: 5, turn: 0.35, grip: 2 }, look: { shape: 'f1' } },
 
   // Wheels
   { id: 'wheels_std', cat: 'wheels', name: 'Standard', price: 0, look: { rim: 0xc9ced6, style: 'disc' } },

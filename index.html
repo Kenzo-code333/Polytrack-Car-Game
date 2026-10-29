@@ -24,8 +24,12 @@
       <div class="menu-buttons">
         <button id="btn-play" class="btn primary big">🏁 Race</button>
         <button id="btn-garage" class="btn">🔧 Garage</button>
-        <button id="btn-online" class="btn ghost">🌐 Online with friends <small>soon</small></button>
-        <button id="btn-help" class="btn ghost">❔ How to play</button>
+        <button id="btn-online" class="btn">🌐 Online with friends</button>
+        <button id="btn-editor" class="btn">✏️ Track editor</button>
+        <div class="menu-row">
+          <button id="btn-settings" class="btn ghost">⚙️ Sound</button>
+          <button id="btn-help" class="btn ghost">❔ How to play</button>
+        </div>
         <button id="menu-chests" class="btn chest hidden">🎁 Open treasure chest (<span id="menu-chests-count">0</span>)</button>
       </div>
     </div>
@@ -62,11 +66,24 @@
         <h2>Garage</h2>
         <div class="coins">🪙 <span id="garage-coins">0</span></div>
       </div>
+      <div id="garage-groups" class="seg" role="tablist"></div>
       <div id="garage-tabs" class="tabs"></div>
+      <div class="garage-filter" role="group" aria-label="Show parts">
+        <button data-filter="all" class="chip small selected">All</button>
+        <button data-filter="owned" class="chip small">Owned</button>
+        <button data-filter="afford" class="chip small">Can afford</button>
+      </div>
       <div id="garage-parts" class="parts"></div>
-      <div id="garage-stats" class="stats"></div>
-      <button id="garage-action" class="btn primary">Equip</button>
-      <p class="hint">Drag the car to spin it. Earn coins by collecting them on the track and finishing races.</p>
+      <div id="garage-detail" class="detail">
+        <div class="detail-top"><b id="detail-name"></b><span id="detail-tag"></span></div>
+        <div id="detail-stats" class="pstats"></div>
+        <button id="garage-action" class="btn primary">Equip</button>
+      </div>
+      <div class="stats-box">
+        <div class="stats-head">Your car <span class="hint">green = gain · red = loss</span></div>
+        <div id="garage-stats" class="stats"></div>
+      </div>
+      <p class="hint">Drag the car to spin it. Earn coins on the track and by finishing races.</p>
     </div>
   </section>
 
@@ -78,24 +95,136 @@
         <tr><td><kbd>W</kbd><kbd>↑</kbd></td><td>Accelerate</td></tr>
         <tr><td><kbd>S</kbd><kbd>↓</kbd></td><td>Brake / reverse</td></tr>
         <tr><td><kbd>A</kbd><kbd>D</kbd><kbd>←</kbd><kbd>→</kbd></td><td>Steer</td></tr>
-        <tr><td><kbd>Space</kbd></td><td>Drift (handbrake)</td></tr>
-        <tr><td><kbd>E</kbd><kbd>Shift</kbd></td><td>Use power-up</td></tr>
+        <tr><td><kbd>Space</kbd><kbd>Enter</kbd></td><td>Use power-up</td></tr>
         <tr><td><kbd>R</kbd></td><td>Reset car onto the track</td></tr>
         <tr><td><kbd>C</kbd></td><td>Change camera</td></tr>
         <tr><td><kbd>Esc</kbd><kbd>P</kbd></td><td>Pause</td></tr>
         <tr><td><kbd>M</kbd></td><td>Mute</td></tr>
+        <tr><td><kbd>Esc</kbd> or the ☰ bar</td><td>Menu: pause, restart or exit a race</td></tr>
       </table>
       <h3>Power-ups (drive through ❓ boxes)</h3>
       <ul class="powerups">
         <li>🚀 <b>Speed Boost</b> — a burst of nitro.</li>
-        <li>🟤 <b>Mud Splash</b> — throws mud at the racer ahead. If you get hit, mud covers your screen!</li>
-        <li>🛡️ <b>Shield</b> — blocks one mud splash or oil slick.</li>
+        <li>🚀×3 <b>Triple Boost</b> — three short boosts, one per press.</li>
+        <li>🟤 <b>Mud Splash</b> — throws mud at the racer ahead: a big slowdown for 2 seconds and mud on their screen!</li>
+        <li>🎯 <b>Homing Rocket</b> — chases the racer ahead and flips them into a spin.</li>
+        <li>⚡ <b>Lightning</b> — stuns every racer ahead of you for a moment.</li>
+        <li>💥 <b>Shockwave</b> — blasts nearby cars away from you.</li>
+        <li>👻 <b>Ghost</b> — 5 seconds of driving through cars, immune to every attack.</li>
+        <li>🌀 <b>Warp Jump</b> — teleports you 45 m up the road.</li>
+        <li>🛡️ <b>Shield</b> — blocks one attack.</li>
         <li>🧲 <b>Coin Magnet</b> — pulls nearby coins to you.</li>
         <li>🛢️ <b>Oil Slick</b> — drop it behind you to spin out chasers.</li>
       </ul>
-      <p>Blue arrow pads give a free boost. Collect 🪙 coins on the road, then spend them in the garage.
+      <p>Blue arrow pads give a free boost, and yellow ramps launch you into the air. Collect 🪙 coins on the road, then spend them in the garage.
         Win a race to earn a 🎁 treasure chest with coins, parts or exclusive upgrades!</p>
       <button id="help-back" class="btn primary">Got it</button>
+    </div>
+  </section>
+
+  <!-- Online lobby -->
+  <section id="online" class="screen hidden">
+    <div class="panel">
+      <div class="panel-head">
+        <button id="online-back" class="btn small ghost">← Back</button>
+        <h2>Race with friends</h2>
+        <span class="net-dot" id="online-dot" title="Connection"></span>
+      </div>
+      <div id="online-unavailable" class="hidden">
+        <p>Online races need the game's website or its claude.ai link. Open either one, then invite your friends from the lobby.</p>
+      </div>
+      <div id="online-home" class="hidden">
+        <label class="field" for="online-name">Your racer name
+          <input id="online-name" maxlength="16" autocomplete="off" placeholder="Speedy" />
+        </label>
+        <button id="online-create" class="btn primary big">Create a race</button>
+        <div class="join-row">
+          <input id="online-code" maxlength="6" autocomplete="off" placeholder="Race code" aria-label="Race code" />
+          <button id="online-join" class="btn">Join</button>
+        </div>
+        <p id="invite-note" class="hint">Create a race, then send your friends the invite. They open the game link,
+          press Online, and join with the code.</p>
+      </div>
+      <div id="online-lobby" class="hidden">
+        <div class="code-box"><span>Race code</span><b id="lobby-code"></b></div>
+        <div class="invite">
+          <label class="field" for="invite-text">Invite friends
+            <input id="invite-text" readonly />
+          </label>
+          <button id="invite-copy" class="btn buy">Copy invite</button>
+        </div>
+        <h3>Racers</h3>
+        <ul id="lobby-players" class="players"></ul>
+        <div id="lobby-champ" class="hidden">
+          <h3>Championship</h3>
+          <table id="champ-table" class="standings"></table>
+        </div>
+        <div id="lobby-host" class="lobby-opts">
+          <label class="field" for="lobby-map">Track <select id="lobby-map"></select></label>
+          <label class="field" for="lobby-season">Season <select id="lobby-season"></select></label>
+          <label class="field" for="lobby-laps">Laps <select id="lobby-laps"></select></label>
+        </div>
+        <p id="lobby-status" class="sub"></p>
+        <div class="row">
+          <button id="lobby-start" class="btn primary big">Start race</button>
+          <button id="lobby-leave" class="btn ghost">Leave</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sound settings -->
+  <section id="settings" class="screen hidden">
+    <div class="panel small-panel">
+      <h2>Sound</h2>
+      <div class="vol-group"></div>
+      <p class="sub">Now playing: <b class="now-playing"></b></p>
+      <button id="settings-back" class="btn primary">Done</button>
+    </div>
+  </section>
+
+  <!-- Track editor -->
+  <section id="editor" class="screen hidden">
+    <div class="editor-wrap">
+      <div class="editor-board">
+        <canvas id="editor-canvas" tabindex="0" aria-label="Track drawing board"></canvas>
+        <p class="editor-help">Tap the board to add a corner · drag corners to move them · corner 1 is the start</p>
+        <div id="ed-flash"></div>
+      </div>
+      <div class="editor-panel">
+        <div class="panel-head">
+          <button id="ed-back" class="btn small ghost">← Back</button>
+          <h2>Track editor</h2>
+          <span></span>
+        </div>
+        <div class="ed-row">
+          <select id="ed-load" aria-label="Open a saved track"></select>
+          <button id="ed-new" class="btn small">New</button>
+        </div>
+        <label class="field" for="ed-name">Track name <input id="ed-name" maxlength="16" autocomplete="off" /></label>
+        <div class="ed-grid">
+          <label class="field" for="ed-width">Road width <span id="ed-width-val"></span>
+            <input id="ed-width" type="range" min="12" max="22" step="1" />
+          </label>
+          <label class="field" for="ed-music">Music <select id="ed-music"></select></label>
+        </div>
+        <div class="ed-point">
+          <div class="ed-point-head"><b id="ed-sel-label"></b><button id="ed-delete-point" class="btn small ghost">Remove</button></div>
+          <label class="field" for="ed-height">Height <span id="ed-height-val"></span>
+            <input id="ed-height" type="range" min="0" max="30" step="0.5" />
+          </label>
+          <div class="ed-row">
+            <button id="ed-ramp" class="toggle">🟨 Jump ramp here</button>
+            <button id="ed-bumps" class="toggle">〰️ Bumps here</button>
+          </div>
+        </div>
+        <div id="ed-status" class="ed-status"></div>
+        <div class="ed-row">
+          <button id="ed-save" class="btn">💾 Save</button>
+          <button id="ed-test" class="btn primary">▶ Test drive</button>
+        </div>
+        <button id="ed-delete-track" class="btn small ghost">Delete track</button>
+      </div>
     </div>
   </section>
 
@@ -107,9 +236,11 @@
   <section id="pause" class="screen hidden">
     <div class="panel small-panel">
       <h2>Paused</h2>
-      <button id="pause-resume" class="btn primary">Resume</button>
-      <button id="pause-restart" class="btn">Restart</button>
-      <button id="pause-quit" class="btn ghost">Quit to menu</button>
+      <button id="pause-resume" class="btn primary">▶ Resume</button>
+      <button id="pause-restart" class="btn">↻ Restart</button>
+      <button id="pause-quit" class="btn">✕ Exit race</button>
+      <div class="vol-group"></div>
+      <p class="sub">Now playing: <b class="now-playing"></b></p>
     </div>
   </section>
 
@@ -169,16 +300,22 @@
     <div class="hud-tr">
       <div id="hud-time">0:00.00</div>
       <div id="hud-best">Best lap --</div>
-      <button id="pause-btn" class="icon-btn">⏸</button>
+      <nav class="race-bar" aria-label="Race menu">
+        <button id="bar-menu" title="Menu (Esc)">☰ Menu</button>
+        <button id="bar-restart" title="Restart">↻</button>
+        <button id="bar-sound" title="Sound">🔊</button>
+        <button id="bar-exit" title="Exit race">✕ Exit</button>
+      </nav>
     </div>
     <canvas id="minimap" width="190" height="190"></canvas>
-    <div id="hud-item"><div class="slot"><span id="item-icon"></span></div><div id="item-name">No item</div><div class="hint">E / Shift</div></div>
+    <div id="hud-item"><div class="slot"><span id="item-icon"></span></div><div id="item-name">No item</div><div class="hint">Space</div></div>
     <div id="hud-speed"><span id="speed-val">0</span><small>km/h</small><div class="speed-track"><i id="speed-bar"></i></div></div>
     <div id="hud-msg"></div>
     <div id="hud-countdown"></div>
     <div id="hud-wrong">⚠ WRONG WAY</div>
     <div id="boost-lines"></div>
     <div id="mud-overlay"></div>
+    <div id="zap-flash"></div>
     <div id="touch">
       <div class="tleft">
         <button data-key="TouchLeft">◀</button>
@@ -186,7 +323,6 @@
       </div>
       <div class="tright">
         <button data-key="TouchItem" class="titem">★</button>
-        <button data-key="TouchDrift">⤵</button>
         <button data-key="TouchBrake">■</button>
         <button data-key="TouchGas" class="tgas">▲</button>
       </div>
@@ -194,6 +330,7 @@
   </div>
 
   <div id="toast"></div>
+  <script src="vendor/peerjs.min.js"></script>
   <script type="module" src="js/main.js"></script>
 </body>
 </html>
