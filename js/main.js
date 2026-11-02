@@ -767,7 +767,31 @@ if (matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch'
 bindTouchControls(document.getElementById('touch'));
 
 let last = performance.now();
+// Adaptive resolution: if the frame rate dips, draw slightly fewer pixels; raise it again
+// when there is headroom. Keeps the game smooth on slower phones and laptops.
+const maxRatio = Math.min(window.devicePixelRatio || 1, 2);
+const minRatio = Math.max(0.75, maxRatio * 0.5);
+let pixelRatio = maxRatio;
+let fpsAvg = 60;
+let tuneTimer = 0;
+function adaptQuality(frameMs) {
+  if (frameMs <= 0 || frameMs > 250) return; // tab was hidden or paused
+  fpsAvg += (1000 / frameMs - fpsAvg) * 0.05;
+  tuneTimer += frameMs;
+  if (tuneTimer < 1500) return;
+  tuneTimer = 0;
+  let next = pixelRatio;
+  if (fpsAvg < 48) next = Math.max(minRatio, pixelRatio - 0.15);
+  else if (fpsAvg > 57) next = Math.min(maxRatio, pixelRatio + 0.1);
+  if (Math.abs(next - pixelRatio) > 0.01) {
+    pixelRatio = next;
+    renderer.setPixelRatio(pixelRatio);
+    renderer.setSize(innerWidth, innerHeight);
+  }
+}
+
 function frame(now) {
+  adaptQuality(now - last);
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   if (race) {
@@ -796,4 +820,4 @@ if (invited) {
 }
 showroom.setView('menu');
 requestAnimationFrame(frame);
-window.__game = { get race() { return race; }, profile, startRace, selection, music, audio };
+window.__game = { get race() { return race; }, profile, startRace, selection, music, audio, get quality() { return { pixelRatio, fpsAvg }; }, adaptQuality };

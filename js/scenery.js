@@ -132,7 +132,9 @@ export function buildEnvironment(scene, track, map, season, renderer) {
   const sunDir = new THREE.Vector3(...season.sunDir).normalize();
   const sun = new THREE.DirectionalLight(season.sun, season.sunIntensity);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  // Phones get a lighter shadow map; it is one of the biggest costs per frame.
+  const shadowSize = matchMedia('(pointer: coarse)').matches ? 1024 : 2048;
+  sun.shadow.mapSize.set(shadowSize, shadowSize);
   const sc = sun.shadow.camera;
   sc.left = -75;
   sc.right = 75;
