@@ -4,6 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>PolyRush Racing</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@1,700;1,800&family=Barlow:wght@400;500;600;700&display=swap" />
   <link rel="stylesheet" href="css/style.css" />
   <script type="importmap">
     { "imports": { "three": "./vendor/three.module.min.js" } }
@@ -12,49 +15,78 @@
 <body>
   <canvas id="game"></canvas>
 
+  <div id="rush-bg" aria-hidden="true">RUSH</div>
+
   <!-- Main menu -->
-  <section id="menu" class="screen">
-    <div class="topbar">
-      <div class="coins">🪙 <span class="coin-count">0</span></div>
-      <button id="btn-mute" class="icon-btn" title="Sound (M)">🔊</button>
-    </div>
-    <div class="menu-main">
-      <h1 class="logo">Poly<span>Rush</span></h1>
-      <p class="tagline">Race · Collect · Customise</p>
-      <div class="menu-buttons">
-        <button id="btn-play" class="btn primary big">🏁 Race</button>
-        <button id="btn-garage" class="btn">🔧 Garage</button>
-        <button id="btn-online" class="btn">🌐 Online with friends</button>
-        <button id="btn-editor" class="btn">✏️ Track editor</button>
-        <div class="menu-row">
-          <button id="btn-settings" class="btn ghost">⚙️ Sound</button>
-          <button id="btn-help" class="btn ghost">❔ How to play</button>
+  <section id="menu" class="screen page">
+    <header class="appbar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true"></span><span class="brand-name">Poly<b>Rush</b></span></div>
+      <div class="appbar-right">
+        <div class="coins"><span class="coin-dot" aria-hidden="true"></span><span class="coin-count">0</span></div>
+        <button id="btn-gear" class="icon-btn" aria-label="Settings"><i data-icon="gear"></i></button>
+      </div>
+    </header>
+    <div class="menu-grid">
+      <div class="menu-left">
+        <p class="eyebrow">Race · Collect · Customise</p>
+        <h1 class="hero-title">Ready to<br /><em>race?</em></h1>
+        <button id="btn-play" class="cta">
+          <i data-icon="flag"></i>
+          <span class="cta-text"><b>Race</b><small>Pick a track, season and go</small></span>
+          <i data-icon="arrow"></i>
+        </button>
+        <div class="menu-rows">
+          <button id="btn-garage" class="row-btn"><span class="row-num">02</span><i data-icon="wrench"></i><b>Garage</b><small>Paint, wheels &amp; upgrades</small><i data-icon="chev" class="row-chev"></i></button>
+          <button id="btn-online" class="row-btn"><span class="row-num">03</span><i data-icon="users"></i><b>Online</b><small>Race your friends by link</small><span class="live">Live</span><i data-icon="chev" class="row-chev"></i></button>
+          <button id="btn-editor" class="row-btn"><span class="row-num">04</span><i data-icon="pencil"></i><b>Track editor</b><small>Build your own circuit</small><i data-icon="chev" class="row-chev"></i></button>
+          <button id="menu-chests" class="row-btn chest-row hidden"><span class="row-num">🎁</span><i data-icon="gift"></i><b>Treasure chest</b><small><span id="menu-chests-count">0</span> waiting to open</small><i data-icon="chev" class="row-chev"></i></button>
         </div>
-        <button id="menu-chests" class="btn chest hidden">🎁 Open treasure chest (<span id="menu-chests-count">0</span>)</button>
+        <div class="menu-mini">
+          <button id="btn-settings" class="mini-btn"><i data-icon="volume"></i>Sound</button>
+          <button id="btn-help" class="mini-btn"><i data-icon="gamepad"></i>How to play</button>
+        </div>
+        <div class="kbd-hints" aria-hidden="true">
+          <span><kbd>Enter</kbd>Race</span><span><kbd>G</kbd>Garage</span><span><kbd>Esc</kbd>Settings</span>
+        </div>
+      </div>
+      <div class="menu-stage">
+        <div class="speed-lines" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="car-card">
+          <div class="car-card-head"><span>Your car</span><button id="btn-change-car" class="link-btn">Change</button></div>
+          <div id="car-card-name" class="car-card-name"></div>
+          <div id="car-stats"></div>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- Map, season and difficulty selection -->
-  <section id="select" class="screen hidden">
-    <div class="panel wide">
-      <div class="panel-head">
-        <button id="select-back" class="btn small ghost">← Back</button>
-        <h2>Choose your race</h2>
-        <div class="coins">🪙 <span class="coin-count">0</span></div>
+  <!-- Race setup: track, season, opponents and laps -->
+  <section id="select" class="screen page hidden">
+    <header class="setup-head">
+      <button id="select-back" class="back-btn"><i data-icon="chevL"></i>Back</button>
+      <h1 class="page-title">Race setup</h1>
+      <span class="page-sub">Choose where, when and how hard</span>
+      <div class="coins"><span class="coin-dot" aria-hidden="true"></span><span class="coin-count">0</span></div>
+    </header>
+    <div class="setup-grid">
+      <div class="setup-main">
+        <div class="sec-head"><span class="sec-num">01</span><span class="sec-title">Track</span><span class="sec-rule"></span><span id="track-count" class="sec-note"></span></div>
+        <div id="map-list" class="track-grid"></div>
+        <div class="sec-head"><span class="sec-num">02</span><span class="sec-title">Season</span><span class="sec-rule"></span><span class="sec-note">Changes grip and scenery</span></div>
+        <div id="season-list" class="season-grid"></div>
       </div>
-      <h3>Track</h3>
-      <div id="map-list" class="card-row"></div>
-      <h3>Season</h3>
-      <div id="season-list" class="card-row seasons"></div>
-      <div class="options">
-        <div><h3>Opponents</h3><div id="diff-list" class="chips"></div></div>
-        <div><h3>Laps</h3><div id="laps-list" class="chips"></div></div>
-      </div>
-      <div class="start-row">
-        <span id="select-best"></span>
-        <button id="select-start" class="btn primary big">Start race ▶</button>
-      </div>
+      <aside class="summary">
+        <div class="sum-head"><span>Your race</span><span id="sum-meta"></span></div>
+        <canvas id="sum-preview" width="700" height="380"></canvas>
+        <h2 id="sum-name"></h2>
+        <p id="sum-season"></p>
+        <div class="sum-label">Opponents</div>
+        <div id="diff-list" class="seg-btns"></div>
+        <div class="sum-label">Laps</div>
+        <div id="laps-list" class="seg-btns"></div>
+        <div class="best-row"><i data-icon="timer"></i><span>Best time</span><b id="select-best"></b></div>
+        <button id="select-start" class="cta cta-start"><span class="cta-text"><b>Start race</b></span><i data-icon="arrow"></i></button>
+      </aside>
     </div>
   </section>
 
@@ -329,6 +361,7 @@
     </div>
   </div>
 
+  <div class="checker-strip" aria-hidden="true"></div>
   <div id="toast"></div>
   <script src="vendor/peerjs.min.js"></script>
   <script type="module" src="js/main.js"></script>

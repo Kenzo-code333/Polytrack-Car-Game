@@ -1,6 +1,7 @@
 // Entry point: renderer, screens and game flow.
 import * as THREE from 'three';
-import { MAPS, SEASONS, DIFFICULTIES, PARTS, PLACE_BONUS, CATEGORIES, TUNES } from './data.js';
+import { MAPS, SEASONS, DIFFICULTIES, PARTS, PART_BY_ID, PLACE_BONUS, CATEGORIES, TUNES, computeStats } from './data.js';
+import { icon, applyIcons } from './icons.js';
 import { profile, saveProfile, addCoins, grantPart, equipPart, recordBest } from './save.js';
 import { Race } from './race.js';
 import { HUD, formatTime, ordinal } from './hud.js';
@@ -17,7 +18,8 @@ const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 const canvas = $('game');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+renderer.setClearColor(0x000000, 0);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
@@ -46,9 +48,13 @@ if (!DIFFICULTIES[selection.difficulty]) selection.difficulty = 'normal';
 
 // ---------- screens ----------
 
+applyIcons();
+
 let currentScreen = 'menu';
 function showScreen(id) {
   currentScreen = id;
+  // The page decoration (big "RUSH" lettering, checkered strip) depends on the screen.
+  document.body.dataset.screen = id || 'race';
   for (const el of document.querySelectorAll('.screen')) el.classList.toggle('hidden', el.id !== id);
   showroom.active = !race;
   if (!race && id !== 'loading') music.play('menu');
@@ -61,6 +67,26 @@ function refreshCoins() {
   const n = profile.chests || 0;
   $('menu-chests').classList.toggle('hidden', n === 0);
   $('menu-chests-count').textContent = n;
+  renderCarCard();
+}
+
+// "Your car" card on the main menu: the equipped car and three key stats out of 10 segments.
+const CARD_STATS = [
+  ['Top speed', 'speed', 30, 60],
+  ['Acceleration', 'accel', 12, 45],
+  ['Grip', 'grip', 5, 14],
+];
+function segments(filled, total, cls = '') {
+  return `<span class="segs ${cls}">${Array.from({ length: total }, (_, i) => `<i class="${i < filled ? 'on' : ''}"></i>`).join('')}</span>`;
+}
+function renderCarCard() {
+  const stats = computeStats(profile.equipped);
+  const car = PART_BY_ID[profile.equipped.body];
+  $('car-card-name').textContent = car ? car.name : '';
+  $('car-stats').innerHTML = CARD_STATS.map(([label, key, lo, hi]) => {
+    const n = Math.max(1, Math.min(10, Math.round(((stats[key] - lo) / (hi - lo)) * 10)));
+    return `<div class="stat-row"><span>${label}</span>${segments(n, 10)}</div>`;
+  }).join('');
 }
 
 function toast(text) {
@@ -130,10 +156,15 @@ function updateNowPlaying() {
   for (const el of document.querySelectorAll('.now-playing')) el.textContent = t.name;
 }
 $('menu-chests').addEventListener('click', () => openChest('menu'));
-$('btn-mute').addEventListener('click', () => {
+function toggleMute() {
   const m = audio.toggleMute();
-  $('btn-mute').textContent = m ? '🔇' : '🔊';
+  toast(m ? 'Sound off (press M to turn it back on)' : 'Sound on');
+}
+$('btn-gear').addEventListener('click', () => {
+  audio.play('click');
+  showScreen('settings');
 });
+$('btn-change-car').addEventListener('click', () => $('btn-garage').click());
 
 const garage = new Garage({
   showroom,
@@ -147,10 +178,30 @@ const garage = new Garage({
 
 // ---------- map & season select ----------
 
+// Track map on a dark grass grid: grey road, dashed centre line, yellow start dot.
 function drawPreview(cv, map) {
   const ctx = cv.getContext('2d');
+  const W = cv.width;
+  const H = cv.height;
+  ctx.fillStyle = '#121a15';
+  ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = 'rgba(120, 170, 130, 0.09)';
+  ctx.lineWidth = 1;
+  const step = Math.round(W / 14);
+  for (let x = step / 2; x < W; x += step) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, H);
+    ctx.stroke();
+  }
+  for (let y = step / 2; y < H; y += step) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(W, y);
+    ctx.stroke();
+  }
   const curve = new THREE.CatmullRomCurve3(map.points.map((p) => new THREE.Vector3(...p)), true, 'centripetal');
-  const pts = curve.getSpacedPoints(200);
+  const pts = curve.getSpacedPoints(240);
   let minX = Infinity;
   let maxX = -Infinity;
   let minZ = Infinity;
@@ -161,60 +212,88 @@ function drawPreview(cv, map) {
     minZ = Math.min(minZ, p.z);
     maxZ = Math.max(maxZ, p.z);
   }
-  const W = cv.width;
-  const H = cv.height;
-  const s = Math.min((W - 30) / (maxX - minX), (H - 30) / (maxZ - minZ));
+  const pad = W * 0.1;
+  const s = Math.min((W - pad * 2) / (maxX - minX), (H - pad * 2) / (maxZ - minZ));
   const ox = (W - (maxX - minX) * s) / 2;
   const oy = (H - (maxZ - minZ) * s) / 2;
-  ctx.clearRect(0, 0, W, H);
+  const road = W / 26;
+  const path = () => {
+    ctx.beginPath();
+    pts.forEach((p, i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, ox + (p.x - minX) * s, oy + (p.z - minZ) * s));
+    ctx.closePath();
+  };
   ctx.lineJoin = 'round';
-  ctx.beginPath();
-  pts.forEach((p, i) => {
-    const x = ox + (p.x - minX) * s;
-    const y = oy + (p.z - minZ) * s;
-    if (i) ctx.lineTo(x, y);
-    else ctx.moveTo(x, y);
-  });
-  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
-  ctx.lineWidth = 12;
+  path();
+  ctx.strokeStyle = '#2a2e36';
+  ctx.lineWidth = road + 3;
   ctx.stroke();
-  ctx.strokeStyle = '#fff';
-  ctx.lineWidth = 6;
+  ctx.strokeStyle = '#4b505b';
+  ctx.lineWidth = road;
   ctx.stroke();
+  ctx.setLineDash([road * 0.5, road * 0.55]);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.85)';
+  ctx.lineWidth = Math.max(1, road * 0.12);
+  ctx.stroke();
+  ctx.setLineDash([]);
   const p0 = pts[0];
-  ctx.fillStyle = '#ffd400';
+  ctx.fillStyle = '#ffc21a';
+  ctx.strokeStyle = '#111';
+  ctx.lineWidth = road * 0.18;
   ctx.beginPath();
-  ctx.arc(ox + (p0.x - minX) * s, oy + (p0.z - minZ) * s, 7, 0, Math.PI * 2);
+  ctx.arc(ox + (p0.x - minX) * s, oy + (p0.z - minZ) * s, road * 0.62, 0, Math.PI * 2);
   ctx.fill();
+  ctx.stroke();
 }
 
 function bestKey() {
   return `${selection.map}:${selection.season}:${selection.laps}`;
 }
 
+const DIFF_LABEL = ['', 'Easy', 'Medium', 'Hard'];
+const SEASON_LOOK = {
+  spring: { icon: 'sprout', color: '#f38bb3' },
+  summer: { icon: 'sun', color: '#ffc21a' },
+  autumn: { icon: 'leaf', color: '#f08a3c' },
+  winter: { icon: 'snow', color: '#8cc8ff' },
+};
+const gripBars = (grip) => (grip >= 1.05 ? 4 : grip >= 1 ? 3 : grip >= 0.9 ? 2 : 1);
+
 function openMapSelect() {
   showScreen('select');
-  const maps = $('map-list');
-  maps.innerHTML = '';
-  for (const m of allMaps()) {
+  const maps = allMaps();
+  if (!maps.some((m) => m.id === selection.map)) selection.map = MAPS[0].id;
+  $('track-count').textContent = `${maps.length} circuits`;
+  const list = $('map-list');
+  list.innerHTML = '';
+  for (const m of maps) {
     const card = document.createElement('button');
-    card.className = 'map-card' + (m.id === selection.map ? ' selected' : '');
-    card.innerHTML = `<canvas width="220" height="150"></canvas><div class="map-name">${esc(m.name)}${m.custom ? '<span class="custom-tag">Yours</span>' : ''}</div>
-      <div class="map-stars">${'★'.repeat(m.stars)}${'☆'.repeat(3 - m.stars)}</div><div class="map-desc">${m.desc}</div>`;
+    const on = m.id === selection.map;
+    card.className = 'track-card' + (on ? ' selected' : '');
+    card.setAttribute('aria-pressed', on);
+    card.innerHTML = `<div class="track-thumb"><canvas width="380" height="220"></canvas>${on ? '<span class="sel-tag">Selected</span>' : ''}</div>
+      <div class="track-name">${esc(m.name)}${m.custom ? '<span class="custom-tag">Yours</span>' : ''}</div>
+      <div class="diff d${m.stars}">${segments(m.stars, 3)}<span>${DIFF_LABEL[m.stars]}</span></div>
+      <p class="track-desc">${esc(m.desc)}</p>`;
     drawPreview(card.querySelector('canvas'), m);
     card.addEventListener('click', () => {
       audio.play('click');
       selection.map = m.id;
       openMapSelect();
     });
-    maps.appendChild(card);
+    list.appendChild(card);
   }
   const seasons = $('season-list');
   seasons.innerHTML = '';
   for (const s of Object.values(SEASONS)) {
+    const look = SEASON_LOOK[s.id];
     const b = document.createElement('button');
-    b.className = `season-card ${s.id}` + (s.id === selection.season ? ' selected' : '');
-    b.innerHTML = `<div class="season-icon">${s.icon}</div><div class="season-name">${s.name}</div><div class="season-desc">${s.desc}</div>`;
+    const on = s.id === selection.season;
+    b.className = 'season-card' + (on ? ' selected' : '');
+    b.setAttribute('aria-pressed', on);
+    b.style.setProperty('--season', look.color);
+    b.innerHTML = `<div class="season-top"><span class="season-icon">${icon(look.icon)}</span><span class="season-name">${s.name}</span></div>
+      <p class="season-desc">${s.desc}</p>
+      <div class="grip"><span>Grip</span>${segments(gripBars(s.grip), 4)}</div>`;
     b.addEventListener('click', () => {
       audio.play('click');
       selection.season = s.id;
@@ -222,11 +301,12 @@ function openMapSelect() {
     });
     seasons.appendChild(b);
   }
-  const chips = (el, items, key) => {
+  const seg = (el, items, key) => {
     el.innerHTML = '';
     for (const [val, label] of items) {
       const b = document.createElement('button');
-      b.className = 'chip' + (selection[key] === val ? ' selected' : '');
+      b.className = selection[key] === val ? 'selected' : '';
+      b.setAttribute('aria-pressed', selection[key] === val);
       b.textContent = label;
       b.addEventListener('click', () => {
         audio.play('click');
@@ -236,10 +316,19 @@ function openMapSelect() {
       el.appendChild(b);
     }
   };
-  chips($('diff-list'), Object.values(DIFFICULTIES).map((d) => [d.id, d.name]), 'difficulty');
-  chips($('laps-list'), [[1, '1 lap'], [3, '3 laps'], [5, '5 laps']], 'laps');
+  seg($('diff-list'), Object.values(DIFFICULTIES).map((d) => [d.id, d.name]), 'difficulty');
+  seg($('laps-list'), [[1, '1 lap'], [3, '3 laps'], [5, '5 laps']], 'laps');
+
+  // Summary panel.
+  const map = findMap(selection.map) || MAPS[0];
+  const season = SEASONS[selection.season];
+  drawPreview($('sum-preview'), map);
+  $('sum-name').textContent = map.name;
+  $('sum-season').textContent = `${season.name} conditions`;
+  $('sum-season').style.color = SEASON_LOOK[season.id].color;
+  $('sum-meta').textContent = `${selection.laps} lap${selection.laps > 1 ? 's' : ''} · ${DIFFICULTIES[selection.difficulty].name}`;
   const best = profile.best[bestKey()];
-  $('select-best').textContent = best ? `Your best here: ${formatTime(best)}` : 'No record yet — set one!';
+  $('select-best').textContent = best ? formatTime(best) : '--:--.--';
   try {
     localStorage.setItem('polyrush.selection', JSON.stringify(selection));
   } catch {
@@ -371,10 +460,20 @@ function setPaused(p) {
   if (p) audio.engine(0, 0);
 }
 window.addEventListener('keydown', (e) => {
+  const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName || '');
   if (e.code === 'Escape' || e.code === 'KeyP') {
     if (race && !race.ended) setPaused(!race.paused);
   }
-  if (e.code === 'KeyM') $('btn-mute').click();
+  if (typing) return;
+  if (e.code === 'KeyM') toggleMute();
+  // Main menu shortcuts.
+  if (!race && currentScreen === 'menu') {
+    if (e.code === 'Enter' || e.code === 'NumpadEnter') {
+      e.preventDefault();
+      $('btn-play').click();
+    } else if (e.code === 'KeyG') $('btn-garage').click();
+    else if (e.code === 'Escape') $('btn-gear').click();
+  }
 });
 $('bar-menu').addEventListener('click', () => setPaused(true));
 $('bar-sound').addEventListener('click', () => setPaused(true));
