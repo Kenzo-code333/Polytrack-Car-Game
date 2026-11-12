@@ -20,10 +20,9 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 const canvas = $('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
 renderer.setClearColor(0x000000, 0);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 
@@ -868,16 +867,54 @@ bindTouchControls(document.getElementById('touch'));
 let last = performance.now();
 // Adaptive resolution: if the frame rate dips, draw slightly fewer pixels; raise it again
 // when there is headroom. Keeps the game smooth on slower phones and laptops.
-const maxRatio = Math.min(window.devicePixelRatio || 1, 2);
-const minRatio = Math.max(0.75, maxRatio * 0.5);
-let pixelRatio = maxRatio;
+// Graphics quality. "auto": adapt resolution to the frame rate and drop to smooth mode if the
+// device keeps struggling; "high": full quality; "smooth": no shadows, fewer pixels.
+const dpr = window.devicePixelRatio || 1;
+let qualityMode = 'auto';
+try {
+  qualityMode = ['auto', 'high', 'smooth'].includes(localStorage.getItem('polyrush.quality')) ? localStorage.getItem('polyrush.quality') : 'auto';
+} catch {
+  // ignore
+}
+let autoSmooth = false;
+let maxRatio = 1;
+let minRatio = 0.75;
+let pixelRatio = 1;
 let fpsAvg = 60;
 let tuneTimer = 0;
+let lowChecks = 0;
+
+function setShadows(on) {
+  if (renderer.shadowMap.enabled === on) return;
+  renderer.shadowMap.enabled = on;
+  // Materials must be rebuilt with or without shadow sampling.
+  for (const scene of [showroom.scene, race && race.scene]) {
+    if (!scene) continue;
+    scene.traverse((o) => {
+      if (o.material) for (const m of [].concat(o.material)) m.needsUpdate = true;
+    });
+  }
+}
+
+function applyQuality() {
+  const smooth = qualityMode === 'smooth' || (qualityMode === 'auto' && autoSmooth);
+  maxRatio = Math.min(dpr, qualityMode === 'high' ? 2 : smooth ? 1 : 1.5);
+  minRatio = Math.min(maxRatio, Math.max(0.7, maxRatio * 0.6));
+  pixelRatio = maxRatio;
+  renderer.setPixelRatio(pixelRatio);
+  renderer.setSize(innerWidth, innerHeight);
+  setShadows(!smooth);
+  for (const b of document.querySelectorAll('[data-quality]')) {
+    b.classList.toggle('selected', b.dataset.quality === qualityMode);
+    b.setAttribute('aria-pressed', b.dataset.quality === qualityMode);
+  }
+}
+
 function adaptQuality(frameMs) {
   if (frameMs <= 0 || frameMs > 250) return; // tab was hidden or paused
   fpsAvg += (1000 / frameMs - fpsAvg) * 0.05;
   tuneTimer += frameMs;
-  if (tuneTimer < 1500) return;
+  if (tuneTimer < 1500 || qualityMode === 'high') return;
   tuneTimer = 0;
   let next = pixelRatio;
   if (fpsAvg < 48) next = Math.max(minRatio, pixelRatio - 0.15);
@@ -887,7 +924,36 @@ function adaptQuality(frameMs) {
     renderer.setPixelRatio(pixelRatio);
     renderer.setSize(innerWidth, innerHeight);
   }
+  // Still slow at the lowest resolution: switch shadows off for good this session.
+  if (qualityMode === 'auto' && !autoSmooth && race && race.started) {
+    lowChecks = pixelRatio <= minRatio + 0.01 && fpsAvg < 40 ? lowChecks + 1 : 0;
+    if (lowChecks >= 3) {
+      autoSmooth = true;
+      applyQuality();
+      toast('Switched to Smooth graphics to keep the game running well.');
+    }
+  }
 }
+
+// Quality buttons (Sound settings and the pause menu).
+for (const group of document.querySelectorAll('.quality-group')) {
+  group.innerHTML = `<div class="sum-label">Graphics</div><div class="seg-btns">${[['auto', 'Auto'], ['high', 'High'], ['smooth', 'Smooth']]
+    .map(([k, l]) => `<button data-quality="${k}">${l}</button>`).join('')}</div>`;
+}
+for (const b of document.querySelectorAll('[data-quality]')) {
+  b.addEventListener('click', () => {
+    qualityMode = b.dataset.quality;
+    autoSmooth = false;
+    lowChecks = 0;
+    try {
+      localStorage.setItem('polyrush.quality', qualityMode);
+    } catch {
+      // ignore
+    }
+    applyQuality();
+  });
+}
+applyQuality();
 
 function frame(now) {
   adaptQuality(now - last);

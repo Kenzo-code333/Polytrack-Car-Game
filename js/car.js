@@ -313,13 +313,18 @@ export function buildCarModel(equipped, opts = {}) {
   root.add(body);
   const rainbowMats = [];
 
-  const paintMat = new THREE.MeshPhysicalMaterial({
-    color: paint.color, metalness: paint.metalness ?? 0.35, roughness: paint.roughness ?? 0.32,
-    clearcoat: 1, clearcoatRoughness: 0.08,
-  });
+  // Opponents' cars (`lite`) use a cheaper paint without the clear-coat layer.
+  const paintMat = opts.lite
+    ? new THREE.MeshStandardMaterial({ color: paint.color, metalness: paint.metalness ?? 0.35, roughness: Math.max(0.22, (paint.roughness ?? 0.32) - 0.06) })
+    : new THREE.MeshPhysicalMaterial({
+      color: paint.color, metalness: paint.metalness ?? 0.35, roughness: paint.roughness ?? 0.32,
+      clearcoat: 1, clearcoatRoughness: 0.08,
+    });
   if (paint.rainbow) rainbowMats.push({ mat: paintMat, key: 'color', offset: 0 });
   const trimMat = new THREE.MeshStandardMaterial({ color: 0x1d1f25, roughness: 0.5, metalness: 0.3 });
-  const glassMat = new THREE.MeshPhysicalMaterial({ color: 0x16222f, metalness: 0.55, roughness: 0.04, clearcoat: 1 });
+  const glassMat = opts.lite
+    ? new THREE.MeshStandardMaterial({ color: 0x16222f, metalness: 0.6, roughness: 0.05 })
+    : new THREE.MeshPhysicalMaterial({ color: 0x16222f, metalness: 0.55, roughness: 0.04, clearcoat: 1 });
   const chromeMat = new THREE.MeshStandardMaterial({ color: 0xe6e8ec, metalness: 1, roughness: 0.15 });
   const darkMat = new THREE.MeshStandardMaterial({ color: 0x0b0c0f, roughness: 0.8 });
 
@@ -785,7 +790,7 @@ export class Car {
     if (env.mud) turn += Math.sin(performance.now() * 0.006) * 0.06;
     if (env.spin) turn = 10;
     // Ease the turn rate in and out so the car sweeps through corners instead of snapping.
-    this.yawRate += (turn - this.yawRate) * (1 - Math.exp(-dt * (env.spin ? 30 : 7)));
+    this.yawRate += (turn - this.yawRate) * (1 - Math.exp(-dt * (env.spin ? 30 : 11)));
     this.heading -= this.yawRate * dt;
 
     this.pos.x += this.vel.x * dt;

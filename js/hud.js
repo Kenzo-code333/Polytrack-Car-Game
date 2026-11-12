@@ -41,6 +41,7 @@ export class HUD {
     this.ctx = this.mini.getContext('2d');
     this.msgTimer = null;
     this.lastBoard = '';
+    this.last = {};
   }
 
   show(v) {
@@ -72,6 +73,8 @@ export class HUD {
     const oz = (W - (maxZ - minZ) * s) / 2;
     this.mapXY = (x, z) => [ox + (x - minX) * s, oz + (z - minZ) * s];
     this.lastBoard = '';
+    this.last = {};
+    this.miniTrack = null;
   }
 
   setItem(id, uses = 1) {
@@ -142,14 +145,28 @@ export class HUD {
   update(race) {
     const p = race.player;
     const car = p.car;
-    this.pos.innerHTML = `${p.position}<sup>${ordinal(p.position).slice(-2)}</sup><small>/${race.racers.length}</small>`;
-    this.lap.textContent = `Lap ${Math.min(race.laps, Math.max(1, p.lap + 1))} / ${race.laps}`;
+    const setText = (el, key, text) => {
+      if (this.last[key] !== text) {
+        this.last[key] = text;
+        el.textContent = text;
+      }
+    };
+    const posHtml = `${p.position}<sup>${ordinal(p.position).slice(-2)}</sup><small>/${race.racers.length}</small>`;
+    if (this.last.pos !== posHtml) {
+      this.last.pos = posHtml;
+      this.pos.innerHTML = posHtml;
+    }
+    setText(this.lap, 'lap', `Lap ${Math.min(race.laps, Math.max(1, p.lap + 1))} / ${race.laps}`);
     this.timeEl.textContent = race.raceTime > 0 ? formatTime(p.finished ? p.finishTime : race.raceTime) : '0:00.00';
-    this.best.textContent = 'Best lap ' + formatTime(p.bestLap);
-    this.coins.textContent = race.coinsCollected;
+    setText(this.best, 'best', 'Best lap ' + formatTime(p.bestLap));
+    setText(this.coins, 'coins', String(race.coinsCollected));
     const kmh = Math.round(Math.abs(car.speed) * 3.6);
-    this.speed.textContent = kmh;
-    this.speedBar.style.width = Math.min(100, (Math.abs(car.speed) / (car.stats.speed * 1.4)) * 100) + '%';
+    setText(this.speed, 'speed', String(kmh));
+    const bar = Math.round(Math.min(100, (Math.abs(car.speed) / (car.stats.speed * 1.4)) * 100)) + '%';
+    if (this.last.bar !== bar) {
+      this.last.bar = bar;
+      this.speedBar.style.width = bar;
+    }
     this.wrong.classList.toggle('show', race.wrongTimer > 1.2);
     this.boostFx.classList.toggle('active', p.effects.boost > 0);
 
@@ -171,39 +188,49 @@ export class HUD {
     this.drawMinimap(race);
   }
 
+  // The track outline is drawn once into an offscreen canvas; each frame only copies it and
+  // adds the racer dots.
   drawMinimap(race) {
     const ctx = this.ctx;
     const W = this.mini.width;
-    ctx.clearRect(0, 0, W, W);
-    const pts = race.track.p;
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    for (let i = 0; i <= pts.length; i += 3) {
-      const p = pts[i % pts.length];
-      const [x, y] = this.mapXY(p.x, p.z);
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+    if (this.miniTrack !== race.track) {
+      this.miniTrack = race.track;
+      const bg = document.createElement('canvas');
+      bg.width = bg.height = W;
+      const b = bg.getContext('2d');
+      const pts = race.track.p;
+      b.lineJoin = 'round';
+      b.beginPath();
+      for (let i = 0; i <= pts.length; i += 3) {
+        const p = pts[i % pts.length];
+        const [x, y] = this.mapXY(p.x, p.z);
+        if (i === 0) b.moveTo(x, y);
+        else b.lineTo(x, y);
+      }
+      b.closePath();
+      b.strokeStyle = 'rgba(0,0,0,0.45)';
+      b.lineWidth = 9;
+      b.stroke();
+      b.strokeStyle = 'rgba(255,255,255,0.9)';
+      b.lineWidth = 5;
+      b.stroke();
+      const [sx, sy] = this.mapXY(pts[0].x, pts[0].z);
+      b.fillStyle = '#111';
+      b.fillRect(sx - 4, sy - 4, 8, 8);
+      this.miniBg = bg;
     }
-    ctx.closePath();
-    ctx.strokeStyle = 'rgba(0,0,0,0.45)';
-    ctx.lineWidth = 9;
-    ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-    ctx.lineWidth = 5;
-    ctx.stroke();
-    const [sx, sy] = this.mapXY(pts[0].x, pts[0].z);
-    ctx.fillStyle = '#111';
-    ctx.fillRect(sx - 4, sy - 4, 8, 8);
+    ctx.clearRect(0, 0, W, W);
+    ctx.drawImage(this.miniBg, 0, 0);
+    ctx.fillStyle = '#ff5a5f';
     for (const r of race.racers) {
       if (r.isPlayer) continue;
       const [x, y] = this.mapXY(r.car.pos.x, r.car.pos.z);
-      ctx.fillStyle = '#ff5a5a';
       ctx.beginPath();
       ctx.arc(x, y, 4.5, 0, Math.PI * 2);
       ctx.fill();
     }
     const [px, py] = this.mapXY(race.player.car.pos.x, race.player.car.pos.z);
-    ctx.fillStyle = '#ffd400';
+    ctx.fillStyle = '#ffc21a';
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 2;
     ctx.beginPath();
@@ -211,4 +238,5 @@ export class HUD {
     ctx.fill();
     ctx.stroke();
   }
+
 }

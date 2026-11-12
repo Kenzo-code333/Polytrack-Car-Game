@@ -15,6 +15,7 @@ const PLAYER_SLOT = 4;
 const UP = new THREE.Vector3(0, 1, 0);
 const tmp = new THREE.Vector3();
 const tmp2 = new THREE.Vector3();
+const _buf = new THREE.Vector2();
 
 const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
@@ -113,6 +114,7 @@ export class Race {
     this.camMode = 0;
     this.camYaw = this.player.car.heading;
     this.updateCamera(1, true);
+    this.warmUp();
     this.hud.setupRace(this);
     this.audio.engineStart();
   }
@@ -130,7 +132,7 @@ export class Race {
       const { f, lat } = this.gridSpot(slot);
       const isPlayer = slot === mySlot;
       const equipped = isPlayer ? this.opts.equipped : randomLook();
-      const car = new Car(equipped, tr, { number: isPlayer ? 1 : slot + 2 });
+      const car = new Car(equipped, tr, { number: isPlayer ? 1 : slot + 2, lite: !isPlayer });
       if (!isPlayer) {
         const d = this.diff;
         const r = 0.96 + Math.random() * 0.08;
@@ -215,7 +217,7 @@ export class Race {
   }
 
   addRemote(p) {
-    const car = new Car(safeLook(p.presence.eq), this.track, { number: 2 + this.remotes.size });
+    const car = new Car(safeLook(p.presence.eq), this.track, { number: 2 + this.remotes.size, lite: true });
     const st = p.presence.st;
     car.pos.set(finite(st.x), finite(st.y), finite(st.z));
     car.heading = finite(st.h);
@@ -710,7 +712,8 @@ export class Race {
     if (this.finished) return;
     const d = input.drive();
     const target = d.steer;
-    const rate = target === 0 || Math.sign(target) !== Math.sign(this.steer) ? 7 : 3.5;
+    // Steering builds up quickly but not instantly, and lets go faster than it builds.
+    const rate = target === 0 || Math.sign(target) !== Math.sign(this.steer) ? 10 : 6;
     this.steer += Math.max(-rate * dt, Math.min(rate * dt, target - this.steer));
     d.steer = this.steer;
     Object.assign(p.car.input, d);
@@ -1081,7 +1084,39 @@ export class Race {
   }
 
   render() {
-    this.renderer.render(this.scene, this.camera);
+    const r = this.renderer;
+    this.particles.setViewport(r.getDrawingBufferSize(_buf).y, this.camera.fov, r.getPixelRatio());
+    r.render(this.scene, this.camera);
+  }
+
+  // Build every shader the race can need now, so effects that first appear mid-race (boost
+  // flames, shields, mud, oil, rockets, ghost cars) don't freeze the game for a moment.
+  warmUp() {
+    const hidden = [];
+    this.scene.traverse((o) => {
+      if (!o.visible) {
+        hidden.push(o);
+        o.visible = true;
+      }
+    });
+    const extras = [
+      new THREE.Mesh(this.mudGeo, this.mudMat),
+      new THREE.Mesh(this.rocketGeo, this.rocketMat),
+      new THREE.Mesh(this.oilGeo, this.oilMat),
+    ];
+    for (const m of extras) this.scene.add(m);
+    try {
+      this.renderer.compile(this.scene, this.camera);
+      // Ghost cars use transparent versions of the car materials.
+      const p = this.player.car.model;
+      setGhost(p, true);
+      this.renderer.compile(this.scene, this.camera);
+      setGhost(p, false);
+    } catch {
+      // Compiling ahead is only an optimisation.
+    }
+    for (const m of extras) this.scene.remove(m);
+    for (const o of hidden) o.visible = false;
   }
 
   dispose() {

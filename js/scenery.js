@@ -87,7 +87,22 @@ export function makeSky(season) {
   return sky;
 }
 
-function instanced(geo, mat, items, castShadow = true) {
+// Large sets are split into map regions, each its own instanced mesh with tight bounds, so
+// only regions in view (or in the sun's shadow area) are drawn.
+function instanced(geo, mat, items, castShadow = true, cell = 140) {
+  if (items.length <= 120) return instancedChunk(geo, mat, items, castShadow);
+  const chunks = new Map();
+  for (const it of items) {
+    const key = `${Math.floor(it.pos.x / cell)},${Math.floor(it.pos.z / cell)}`;
+    if (!chunks.has(key)) chunks.set(key, []);
+    chunks.get(key).push(it);
+  }
+  const group = new THREE.Group();
+  for (const list of chunks.values()) group.add(instancedChunk(geo, mat, list, castShadow));
+  return group;
+}
+
+function instancedChunk(geo, mat, items, castShadow) {
   const mesh = new THREE.InstancedMesh(geo, mat, Math.max(1, items.length));
   mesh.count = items.length;
   const m = new THREE.Matrix4();
@@ -102,6 +117,7 @@ function instanced(geo, mat, items, castShadow = true) {
   });
   mesh.castShadow = castShadow;
   mesh.receiveShadow = true;
+  mesh.computeBoundingSphere();
   return mesh;
 }
 
@@ -136,10 +152,10 @@ export function buildEnvironment(scene, track, map, season, renderer) {
   const shadowSize = matchMedia('(pointer: coarse)').matches ? 1024 : 2048;
   sun.shadow.mapSize.set(shadowSize, shadowSize);
   const sc = sun.shadow.camera;
-  sc.left = -75;
-  sc.right = 75;
-  sc.top = 75;
-  sc.bottom = -75;
+  sc.left = -62;
+  sc.right = 62;
+  sc.top = 62;
+  sc.bottom = -62;
   sc.near = 1;
   sc.far = 500;
   sun.shadow.bias = -0.0004;
@@ -345,7 +361,7 @@ export function buildEnvironment(scene, track, map, season, renderer) {
     const stemGeo = new THREE.CylinderGeometry(0.03, 0.03, 1, 4);
     stemGeo.translate(0, 0.5, 0);
     group.add(instanced(stemGeo, new THREE.MeshStandardMaterial({ color: 0x3f8a2e }), stems, false));
-    group.add(instanced(new THREE.SphereGeometry(1, 8, 6), new THREE.MeshStandardMaterial({ roughness: 0.6 }), flowers, false));
+    group.add(instanced(new THREE.SphereGeometry(1, 6, 4), new THREE.MeshStandardMaterial({ roughness: 0.6 }), flowers, false));
   } else if (season.extras === 'pumpkins') {
     const pumpkins = [];
     const hay = [];
@@ -356,7 +372,7 @@ export function buildEnvironment(scene, track, map, season, renderer) {
       pumpkins.push({ pos: v3(p.x, p.y + s * 0.6, p.z), scale: v3(s, s * 0.75, s), ry: rng() * 6, color: rng() < 0.85 ? 0xff8a1c : 0xf2c14e });
       if (rng() < 0.3) hay.push({ pos: v3(p.x + 2, p.y + 0.7, p.z + 1), scale: v3(1.6, 1.4, 1.6), rz: Math.PI / 2, ry: rng() * 6 });
     }
-    group.add(instanced(new THREE.SphereGeometry(1, 14, 10), new THREE.MeshStandardMaterial({ roughness: 0.55 }), pumpkins));
+    group.add(instanced(new THREE.SphereGeometry(1, 10, 7), new THREE.MeshStandardMaterial({ roughness: 0.55 }), pumpkins));
     group.add(instanced(new THREE.CylinderGeometry(0.5, 0.5, 1, 14), new THREE.MeshStandardMaterial({ color: 0xd9b45a, roughness: 1 }), hay));
   } else if (season.extras === 'snowmen') {
     const bottom = [];
